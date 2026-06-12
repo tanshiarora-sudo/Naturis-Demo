@@ -47,14 +47,13 @@ function MG01_Command({ nav }) {
     {/* 1 — VVIP projects, always top */}
     <div className="card" style={{ borderTop: "3px solid #D97706" }}>
       <div className="row gap-2" style={{ marginBottom: 14 }}><Icon name="star" size={16} color="#D97706" /><span className="h3">VVIP projects</span></div>
-      <div className="grid grid-3 gap-3">
-        {vvips.map(r => <div key={r.id} onClick={() => setPopupId(r.id)} style={{ padding: 14, borderRadius: 10, background: "var(--brand-wash)", cursor: "pointer" }}>
-          <div className="row between" style={{ marginBottom: 6 }}><VVIPBadge size="sm" /><SLAIndicator req={r} /></div>
-          <div style={{ fontWeight: 700, fontSize: 13.5 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
-          <div className="row gap-2" style={{ marginTop: 8, flexWrap: "wrap" }}><ProjectTypePill type={r.projectType} /><StatusPill status={r.status} size="sm" /></div>
-          <div className="grid grid-2 gap-1" style={{ marginTop: 10 }}>
-            {[["SPOC", r.submittedBy], ["Days in system", r.age + "d"], ["Qty", r.moq], ["Expected price", (r.briefDetail || {}).fg ? "₹" + r.briefDetail.fg + "/unit" : "—"], ["Job value", jobValue(r)], ["Stakeholder", stakeholderOf(r)]].map(([l, v]) =>
-              <div key={l} style={{ fontSize: 11 }}><span className="label" style={{ fontSize: 7.5 }}>{l}</span><div style={{ fontWeight: 600, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</div></div>)}
+      <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+        {vvips.map(r => <div key={r.id} onClick={() => setPopupId(r.id)} style={{ padding: "10px 12px", borderRadius: 10, background: "var(--brand-wash)", cursor: "pointer" }}>
+          <div className="row gap-2" style={{ marginBottom: 3 }}><Icon name="star" size={12} color="#D97706" /><span style={{ fontWeight: 700, fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></div>
+          <div className="row gap-2" style={{ marginBottom: 7 }}><ProjectTypePill type={r.projectType} /><StatusPill status={r.status} size="sm" /></div>
+          <div className="grid grid-2" style={{ gap: "2px 8px" }}>
+            {[["SPOC", r.submittedBy.split(" ")[0]], ["Started", r.submittedAt ? r.submittedAt.replace(" 2026", "") : "—"], ["Qty × price", (r.moq || "—").replace(" units", "") + ((r.briefDetail || {}).fg ? " × ₹" + r.briefDetail.fg : "")], ["Job value", jobValue(r)]].map(([l, v]) =>
+              <div key={l} style={{ minWidth: 0 }}><span className="label" style={{ fontSize: 7 }}>{l}</span><div style={{ fontWeight: 600, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</div></div>)}
           </div>
         </div>)}
       </div>
@@ -69,7 +68,8 @@ function MG01_Command({ nav }) {
       </div>
     </div>
 
-    {/* 2 — red flags */}
+    {/* 2+3 — red flags & immediate attention, side by side to save scroll */}
+    <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr", alignItems: "start" }}>
     <div className="card" style={{ borderTop: "3px solid var(--coral)" }}>
       <SectionTitle sub="Open flags across the pipeline">Red flags</SectionTitle>
       {openFlags.length ? <div className="col gap-2">{openFlags.map(({ f, r }, k) => <div key={k} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--coral-wash)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
@@ -90,17 +90,17 @@ function MG01_Command({ nav }) {
         {!breaches.length && !poAwaited.length && <div className="body-sm">Nothing needs immediate attention.</div>}
       </div>
     </div>
-
-    <div className="grid grid-2 gap-3">
-      <Stat label="Conversion (brief→approved)" value="68" suffix="%" sub="+5% vs last Q" color="var(--ink)" />
-      <Stat label="First-iteration success" value="61" suffix="%" sub="target 65%" color="var(--ink)" />
     </div>
 
-    <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
+    <div className="grid gap-4" style={{ gridTemplateColumns: "0.8fr 1fr 1fr" }}>
+      <div className="col gap-3">
+        <Stat label="Conversion (brief→approved)" value="68" suffix="%" sub="+5% vs last Q" color="var(--ink)" />
+        <Stat label="First-iteration success" value="61" suffix="%" sub="target 65%" color="var(--ink)" />
+      </div>
       <div className="card"><SectionTitle>Project-type distribution</SectionTitle>
-        <div className="grid grid-4 gap-2">{typeCounts.map(({ t, n }) => <div key={t} style={{ textAlign: "center", padding: 12, borderRadius: 10, background: "var(--brand-wash)" }}>
+        <div className="grid grid-2 gap-2">{typeCounts.map(({ t, n }) => <div key={t} style={{ textAlign: "center", padding: 10, borderRadius: 10, background: "var(--brand-wash)" }}>
           <ProjectTypePill type={t} /><div className="serif-num" style={{ fontSize: 26, marginTop: 8 }}>{n}</div></div>)}</div></div>
-      <div className="card"><SectionTitle sub="Click a stage to drill into its requirements">Lifecycle funnel</SectionTitle>
+      <div className="card"><SectionTitle sub="Click a stage to drill in">Lifecycle funnel</SectionTitle>
         <Funnel steps={funnelSteps} onStep={l => setStage(stage === l ? null : l)} active={stage} /></div>
     </div>
     {stage && <div className="card" style={{ padding: 0 }}>
@@ -122,11 +122,11 @@ function MG01_Command({ nav }) {
    MG-02 · BRANDS
    ==================================================================== */
 const BRAND_HUES = {
-  Nykaa:   ["#EC4899", "#FCE7F3"],
-  Plum:    ["#8B5CF6", "#EDE9FE"],
-  Pilgrim: ["#0D9488", "#CCFBF1"],
-  Asaya:   ["#D97706", "#FEF3C7"],
-  Nua:     ["#CC5248", "#FDE8E6"],
+  Nykaa:   ["#C77C9E", "#FDF5F9"],
+  Plum:    ["#9C8FD0", "#F7F5FD"],
+  Pilgrim: ["#6FA8A0", "#F2FAF8"],
+  Asaya:   ["#C9A35E", "#FCF8EF"],
+  Nua:     ["#C68F88", "#FBF3F2"],
 };
 function MG02_Brands({ nav }) {
   return <div className="col gap-5">
@@ -136,18 +136,18 @@ function MG02_Brands({ nav }) {
         const mix = ["EPD", "REN", "TT", "NPD"].map((t, i) => ({ t, n: ((a.id.charCodeAt(5) + i * 3) % 5) + 1 }));
         const [hue, wash] = BRAND_HUES[a.name] || ["var(--brand)", "var(--brand-wash)"];
         return <div key={a.id} className="card" style={{ padding: 0, overflow: "hidden", borderTop: `3px solid ${hue}` }}>
-          <div style={{ padding: "18px 20px 16px", background: `linear-gradient(150deg, ${wash} 0%, var(--surface) 65%)` }}>
+          <div style={{ padding: "18px 20px 16px", background: `linear-gradient(150deg, ${wash} 0%, var(--surface) 50%)` }}>
           <div className="row between" style={{ marginBottom: 14 }}>
-            <div className="row gap-3"><div style={{ width: 40, height: 40, borderRadius: 10, background: hue, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 10px ${hue}55` }}><span style={{ color: "#fff", fontWeight: 800, fontSize: 16, fontFamily: "var(--f-ui)" }}>{a.name[0]}</span></div>
+            <div className="row gap-3"><div style={{ width: 40, height: 40, borderRadius: 10, background: wash, border: `1px solid ${hue}44`, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: hue, fontWeight: 800, fontSize: 16, fontFamily: "var(--f-ui)" }}>{a.name[0]}</span></div>
               <div><div className="h3">{a.name}{a.vvip && <span style={{ marginLeft: 6 }}><Icon name="star" size={13} color="#D97706" /></span>}</div><div className="body-sm" style={{ fontSize: 12 }}>{a.segment} · {a.website}</div></div></div>
             <span className="pill pill-sm" style={{ background: "var(--surface)", color: hue, fontWeight: 700 }}>{a.rating}★</span>
           </div>
           <div className="grid grid-3 gap-2" style={{ marginBottom: 12 }}>
-            {[["Avg order", a.avgOrderValue], ["Live", mix.reduce((s, m) => s + m.n, 0)], ["Approved", a.rating * 2]].map(([l, v]) => <div key={l} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 10, background: "var(--surface)", border: "1px solid var(--border)" }}><div className="serif-num" style={{ fontSize: 22, color: hue }}>{v}</div><div className="label" style={{ fontSize: 9 }}>{l}</div></div>)}
+            {[["Avg order", a.avgOrderValue], ["Live", mix.reduce((s, m) => s + m.n, 0)], ["Approved", a.rating * 2]].map(([l, v]) => <div key={l} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 10, background: "var(--surface)", border: "1px solid var(--border)" }}><div className="serif-num" style={{ fontSize: 22 }}>{v}</div><div className="label" style={{ fontSize: 9 }}>{l}</div></div>)}
           </div>
           <div className="label" style={{ marginBottom: 6 }}>Project-type mix</div>
           <div className="row gap-2">{mix.map(m => <div key={m.t} className="row gap-1"><ProjectTypePill type={m.t} /><span className="mono" style={{ fontSize: 11 }}>{m.n}</span></div>)}</div>
-          <button className="btn btn-sm" style={{ marginTop: 12, width: "100%", background: hue, boxShadow: `0 4px 10px ${hue}44` }} onClick={() => nav("CI-01")}><Icon name="intel" size={14} /> Client intelligence</button>
+          <button className="btn btn-secondary btn-sm" style={{ marginTop: 12, width: "100%", color: hue, borderColor: `${hue}66` }} onClick={() => nav("CI-01")}><Icon name="intel" size={14} color={hue} /> Client intelligence</button>
           </div>
         </div>;
       })}
@@ -285,13 +285,13 @@ function MG04_Tracker({ nav }) {
         <table className="tbl" style={{ minWidth: SHOWN.length > 16 ? 2700 : SHOWN.length * 120 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
             <tr>{SHOWN.map(([k, label, def]) => <th key={k} title={def + " — click to sort"} onClick={() => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(1); } }}
-              style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "8px 10px", whiteSpace: "nowrap", textAlign: "left", cursor: "pointer", userSelect: "none" }}>
+              style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "7px 8px", whiteSpace: "nowrap", textAlign: "left", cursor: "pointer", userSelect: "none" }}>
               {label}{sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>)}</tr>
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} className="clickable" title="Click to open the full requirement" onClick={() => setPopupId(r.id)}>
-              {SHOWN.map(([k]) => <td key={k} style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
-                {k === "brand" ? <span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}<b>{r.brand}</b></span>
+              {SHOWN.map(([k]) => <td key={k} style={{ padding: "5px 8px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
+                {k === "brand" ? <span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" />}<b>{r.brand}</b></span>
                   : k === "stage" ? <StatusPill status={r.stage} size="sm" />
                   : k === "lastCode" || k === "locked" ? <span className="mono" style={{ fontSize: 11.5 }}>{r[k]}</span>
                   : k === "po" || k === "rmOrd" ? YN(r[k])
