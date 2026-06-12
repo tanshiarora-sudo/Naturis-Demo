@@ -157,7 +157,7 @@ function FilterTiles({ options, value, onChange, min }) {
 }
 
 /* ---------- LAB STATION BOOKING CALENDAR (2-week view) ---------- */
-const CAL_STATIONS = [["Station 1", "Emulsion / cream"], ["Station 2", "Gel / serum"], ["Station 3", "SPF / hybrid"], ["Station 4", "Cleanser / wash"], ["Station 5", "Oil / balm"]];
+const CAL_STATIONS = [["Station 1", "Emulsion / cream"], ["Station 2", "Gel / serum"], ["Station 3", "SPF / hybrid"], ["Station 4", "Cleanser / wash"], ["Station 5", "Oil / balm"], ["Station 6", "Mask / leave-on"], ["Station 7", "Colour / lip"], ["Station 8", "Hair / scalp"]];
 const CAL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 /* real-date booking horizon: week 1 = current week (Mon–Fri, or next Mon on weekends), week 2 = the week after */
 const CAL_DATES = (() => {
@@ -179,7 +179,7 @@ function LabStationCalendar({ value, onChange, title, sub }) {
   return <div>
     <div className="row between" style={{ marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
       <div><div className="h3">{title || "Lab station booking"}</div>
-        <div className="body-sm" style={{ fontSize: 12 }}>{sub || "Pick a slot to schedule this trial. This replaces the Excel-based scheduling."}</div></div>
+        <div className="body-sm" style={{ fontSize: 12 }}>{sub || "8 stations · 3–4 products per station per day · FIFO with VVIP priority. Replaces the Excel-based scheduling."}</div></div>
       <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10 }}>
         {[1, 2].map(w => <button key={w} onClick={() => setWeek(w)} className="btn btn-sm" style={{ background: week === w ? "#fff" : "transparent", color: week === w ? "var(--brand)" : "var(--muted)", boxShadow: week === w ? "var(--sh-sm)" : "none", border: "none" }}>Week {w}</button>)}
       </div>

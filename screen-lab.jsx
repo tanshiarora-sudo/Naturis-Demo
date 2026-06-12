@@ -22,6 +22,9 @@ const STAGE_STATUS = ["Formulation", "Trial", "QC", "Fill", "Ready for dispatch"
    LB-01 · DASHBOARD
    ==================================================================== */
 function LB01_Dashboard({ nav }) {
+  const [qType, setQType] = useState("all");
+  const [qSpoc, setQSpoc] = useState("all");
+  const [qText, setQText] = useState("");
   window.useStore();
   const reqs = DL.REQUIREMENTS;
   const needAck = window.vvipSort(reqs.filter(r => PRE_ACK.includes(r.status)));
@@ -65,6 +68,22 @@ function LB01_Dashboard({ nav }) {
       {wip.length ? <ReqTable rows={wip} onOpen={r => nav("LB-03", { reqId: r.id })} cols={["id", "brand", "title", "type", "code", "status"]} />
         : <div className="body-sm" style={{ padding: "16px 18px" }}>Nothing on the bench yet.</div>}
     </div>
+
+    {/* consolidated query list — every lab query, filterable (scale: 60–70 live) */}
+    <div className="card" style={{ padding: 0 }}>
+      <div className="row between wrap gap-3" style={{ padding: "16px 18px" }}>
+        <div><div className="h3">All lab queries</div><div className="body-sm" style={{ fontSize: 12 }}>Everything in the lab pipeline — filter by desk, SPOC or text. You act on your desk; the rest is visibility.</div></div>
+        <div className="row gap-2 wrap">
+          {["all", "EPD", "REN", "TT", "NPD"].map(t => <button key={t} onClick={() => setQType(t)} className="btn btn-sm" style={{ background: qType === t ? "var(--brand)" : "var(--surface)", color: qType === t ? "#fff" : "var(--muted)", border: qType === t ? "none" : "1px solid var(--border)" }}>{t === "all" ? "All desks" : t}</button>)}
+          <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={qSpoc} onChange={e => setQSpoc(e.target.value)}><option value="all">All SPOCs</option>{Array.from(new Set(reqs.map(r => r.submittedBy))).map(s => <option key={s}>{s}</option>)}</select>
+          <input className="input" style={{ width: 180, height: 34, fontSize: 12 }} placeholder="Search id, brand, title…" value={qText} onChange={e => setQText(e.target.value)} />
+        </div>
+      </div>
+      {window.ReqTable && <window.ReqTable
+        rows={reqs.filter(r => !["Pending review", "Returned to SPOC", "Rejected"].includes(r.status))
+          .filter(r => (qType === "all" || r.projectType === qType) && (qSpoc === "all" || r.submittedBy === qSpoc) && (!qText || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(qText.toLowerCase())))}
+        onOpen={r => nav("LB-03", { reqId: r.id })} cols={["id", "brand", "title", "type", "status", "age"]} />}
+    </div>
   </div>;
 }
 
@@ -93,14 +112,26 @@ function QAHistory({ req }) {
    ==================================================================== */
 const PT_TINT = { EPD: "var(--pt-epd-bg)", REN: "var(--pt-ren-bg)", TT: "var(--pt-tt-bg)", NPD: "var(--pt-npd-bg)" };
 const PT_INK = { EPD: "var(--pt-epd-fg)", REN: "var(--pt-ren-fg)", TT: "var(--pt-tt-fg)", NPD: "var(--pt-npd-fg)" };
-function LB02_Incoming({ nav }) {
+/* LM-only: acknowledge & assign with auto-suggested desk (12 Jun meeting) */
+function AssignControl({ req, suggested }) {
+  const techs = Object.values(window.NaturisData.LAB_DESKS).map(dd => dd.tech);
+  const [tech, setTech] = useState(suggested || techs[0]);
+  return <span className="row gap-2" style={{ alignItems: "center" }}>
+    <select className="select" style={{ height: 32, fontSize: 12, width: 168 }} value={tech} onChange={e => setTech(e.target.value)}>
+      {techs.map(t => <option key={t} value={t}>{t}{t === suggested ? " · suggested" : ""}</option>)}
+    </select>
+    <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.assign(req.id, tech, "Dipti OV")}><Icon name="check" size={13} /> Acknowledge & assign</button>
+  </span>;
+}
+
+function LB02_Incoming({ nav, role }) {
   window.useStore();
   const reqs = DL.REQUIREMENTS;
   const [popup, setPopup] = useState(null);
   const queue = window.vvipSort(reqs.filter(r => PRE_ACK.includes(r.status)));
   const Popup = window.RequirementPopup;
   return <div className="col gap-5">
-    <PageHead title="New requirements" sub="Review the brief and the timeline, then acknowledge. Acknowledge = seen & reviewed, not acceptance — the accept / decline call happens in Evaluation." />
+    <PageHead title="Query desk" sub={role === "labmgr" ? "Acknowledge & assign — queries stay here until you assign them to a desk. Acknowledge = seen & reviewed, not acceptance." : "All incoming queries, every desk — visible to everyone, assigned by the lab manager. You act once a query lands on your desk in Evaluation."} />
     {queue.length === 0 && <div className="card" style={{ textAlign: "center", padding: 40 }}><Icon name="check" size={24} color="var(--approved-fg)" /><div className="h3" style={{ marginTop: 8 }}>Nothing new</div><div className="body-sm" style={{ marginTop: 4 }}>All caught up. 🎉</div></div>}
     {TYPE_DESKS_LB.map(t => { const items = queue.filter(r => r.projectType === t); if (!items.length) return null;
       const desk = DL.LAB_DESKS[t] || {};
@@ -129,10 +160,11 @@ function LB02_Incoming({ nav }) {
               <div className="body-sm" style={{ fontSize: 12 }}>SPOC {r.submittedBy} · {r.category}</div>
             </div>
           </div>
-          <div className="row gap-2" style={{ flexShrink: 0 }}>
+          <div className="row gap-2" style={{ flexShrink: 0, alignItems: "center" }}>
             <button className="btn btn-sm" style={{ background: "var(--grad-brand)" }} onClick={() => setPopup({ id: r.id, tab: "brief" })}><Icon name="note" size={13} /> View initial requirement</button>
             <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "timeline" })}><Icon name="history" size={13} /> Open timeline</button>
-            <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.acknowledge(r.id, desk.tech || ME_LAB)}><Icon name="check" size={13} /> Acknowledge</button>
+            {role === "labmgr" ? <AssignControl req={r} suggested={desk.tech} />
+              : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 600 }}><Icon name="clock" size={11} color="var(--review-fg)" /> awaiting LM assignment</span>}
           </div>
         </div>)}
       </div>; })}
@@ -164,17 +196,27 @@ function EvaluationPanel({ req }) {
       <div className="row between" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--page)" }}><span className="body-sm">RM procurement required?</span><YN val={ev.rm} onYes={() => set({ rm: "yes" })} onNo={() => set({ rm: "no" })} /></div>
       <div className="row between" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--page)" }}><span className="body-sm">PM procurement required?</span><YN val={ev.pm} onYes={() => set({ pm: "yes" })} onNo={() => set({ pm: "no" })} /></div>
     </div>
-    {/* slot allotment — 2-week station calendar */}
-    <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", marginBottom: 16 }}>
-      <LabStationCalendar value={ev.slotSel} onChange={sel => set({ slotSel: sel, slot: sel ? sel.label : "" })} />
+    {/* slot allotment is centralised — planning desk books at the lab meeting (12 Jun decision) */}
+    <div className="row between wrap gap-2" style={{ padding: "12px 14px", borderRadius: 10, background: "var(--page)", marginBottom: 16 }}>
+      <div className="row gap-2" style={{ alignItems: "center" }}><Icon name="calendar" size={15} color="var(--brand-accent)" />
+        <div><div style={{ fontSize: 13, fontWeight: 600 }}>Station slot — booked by the planning desk</div>
+          <div className="body-sm" style={{ fontSize: 11.5 }}>Allocation happens at the lab meeting (FIFO + VVIP priority). You'll see your slot here once booked.</div></div></div>
+      {(ev.slot || "").includes("Station") ? <span className="pill" style={{ background: "var(--brand)", color: "#fff", fontWeight: 600 }}>{ev.slot}</span>
+        : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 600 }}>pending planning desk</span>}
     </div>
     <div className="label" style={{ marginBottom: 4 }}>Raw material / ingredient availability</div>
     {past && <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 8 }}>Pre-filled from the selected formulation <b className="mono">{past.code}</b> ({past.name}) plus the brief's actives.</div>}
     <div className="col gap-2">
-      {avail.map((a, i) => <div key={i} className="row between" style={{ padding: "8px 12px", borderRadius: 8, background: "var(--page)" }}>
+      {avail.map((a, i) => <div key={i} className="row between" style={{ padding: "8px 12px", borderRadius: 8, background: "var(--page)", flexWrap: "wrap" }}>
         <span className="row gap-2"><span className="body-sm" style={{ fontSize: 13 }}>{a.name}</span>{a.manual && <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)" }}>added manually</span>}</span>
         <div className="row gap-1">{[["available", "Available", "var(--ok)"], ["short", "Not available", "var(--coral)"]].map(([v, l, c]) =>
           <button key={v} onClick={() => setAvail(i, v)} className="btn btn-sm" style={{ background: a.state === v ? c : "transparent", color: a.state === v ? "#fff" : "var(--muted)", border: a.state === v ? "none" : "1px solid var(--border)" }}>{l}</button>)}</div>
+        {a.state === "short" && <div className="row gap-2 wrap" style={{ width: "100%", marginTop: 8 }}>
+          <input className="input" style={{ width: 110, height: 30, fontSize: 11.5 }} placeholder="Qty needed" value={a.qty || ""} onChange={e => set({ availability: avail.map((x, j) => j === i ? { ...x, qty: e.target.value } : x) })} />
+          <input className="input" style={{ width: 130, height: 30, fontSize: 11.5 }} type="date" title="Expected arrival" value={a.eta || ""} onChange={e => set({ availability: avail.map((x, j) => j === i ? { ...x, eta: e.target.value } : x) })} />
+          <input className="input" style={{ width: 150, height: 30, fontSize: 11.5 }} placeholder="Vendor" value={a.vendor || ""} onChange={e => set({ availability: avail.map((x, j) => j === i ? { ...x, vendor: e.target.value } : x) })} />
+          {a.eta && <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>arriving {a.eta.slice(5)}</span>}
+        </div>}
       </div>)}
     </div>
     <div className="row gap-2" style={{ marginTop: 10 }}>
@@ -193,7 +235,6 @@ function DecisionPanel({ req, nav }) {
   const evalMissing = [
     [!ev.rm || ev.rm === "unset", "RM decision"],
     [!ev.pm || ev.pm === "unset", "PM decision"],
-    [!ev.slot, "slot booking"],
   ].filter(([m]) => m).map(([, lbl]) => lbl);
   const todayStr = new Date().toISOString().slice(0, 10);
   const dateOk = date && date >= todayStr;
@@ -357,6 +398,8 @@ function WipDetail({ req, nav, role }) {
   const showDispatch = stageIdx >= 4 && !POST.includes(req.status);
   const postApproval = ["Client approved", "In stability", "Archived"].includes(req.status);
   function advance() { window.NaturisStore.advanceStage(req.id, req.status === "Accepted — date committed" ? STAGE_STATUS[0] : STAGE_STATUS[Math.min(stageIdx + 1, 4)], techOfReq(req)); }
+  const LSTAGES = DL.LAB_LIVE_STAGES;
+  const curLS = req.labStage || (req.status === "Accepted — date committed" ? null : null);
   return <div className="col gap-4">
     {window.RaiseFlagDrawer && <window.RaiseFlagDrawer open={flagOpen} onClose={() => setFlagOpen(false)} reqId={req.id} role={role || "lab"} />}
     <div className="card">
@@ -388,11 +431,24 @@ function WipDetail({ req, nav, role }) {
       </div>
     </div>
 
-    {!postApproval && <div className="card"><SectionTitle sub="One thread — advance through the bench">Stage</SectionTitle>
+    {!postApproval && <><div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
+      <SectionTitle sub="The 10 live stages the lab runs — only the lab tech updates this; sales sees it live">Live lab status</SectionTitle>
+      <div className="row gap-2 wrap">
+        {LSTAGES.map((st, si) => { const onSt = curLS === st; const doneSt = curLS && LSTAGES.indexOf(curLS) > si;
+          return <button key={st} disabled={st === "Dispatched"} title={st === "Dispatched" ? "Set automatically when the SPOC approves dispatch" : "Set live status"}
+            onClick={() => window.NaturisStore.setLabStage(req.id, st, techOfReq(req))}
+            style={{ border: onSt ? "none" : "1px solid var(--border)", cursor: st === "Dispatched" ? "not-allowed" : "pointer", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, fontFamily: "var(--f-ui)",
+              background: onSt ? "var(--grad-brand)" : doneSt ? "var(--approved-bg)" : "var(--surface)",
+              color: onSt ? "#fff" : doneSt ? "var(--approved-fg)" : "var(--muted)" }}>
+            {doneSt ? "✓ " : ""}{st}</button>; })}
+      </div>
+    </div>
+
+    <div className="card"><SectionTitle sub="One thread — advance through the bench">Stage</SectionTitle>
       <StageStepper stages={stages} current={stages[Math.min(stageIdx, 4)]} vertical done={stageIdx} />
       {stageIdx < 4 && <button className="btn" style={{ marginTop: 14 }} onClick={advance}><Icon name="arrowRight" size={15} /> Advance to {stages[stageIdx + 1]}</button>}
       {stageIdx >= 4 && <div className="row gap-2" style={{ marginTop: 14 }}><span className="pill" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)" }}><Icon name="check" size={12} color="var(--approved-fg)" /> Ready — generate dispatch</span></div>}
-    </div>}
+    </div></>}
     {showDispatch && <DispatchPanel req={req} />}
     {postApproval && <PostApproval req={req} />}
     {["Client approved", "In stability", "Archived"].includes(req.status) && window.PrePOChecklist && <window.PrePOChecklist req={req} role="lab" />}
@@ -459,7 +515,7 @@ function LB03_Live({ params, nav, role }) {
             <div style={{ padding: "12px 14px", borderTop: `3px solid ${ink}` }}>
               <div className="row gap-2" style={{ marginBottom: 6 }}><ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{r.id.slice(-4)}</span></div>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
-              <div className="body-sm" style={{ fontSize: 12.5, marginTop: 2 }}>{r.category}</div>
+              <div className="body-sm" style={{ fontSize: 12.5, marginTop: 2 }}>{r.category}{r.labStage ? " · " : ""}{r.labStage && <span style={{ color: "var(--brand)", fontWeight: 600 }}>{r.labStage}</span>}</div>
               <div className="row between" style={{ marginTop: 10 }}>
                 <FormulationCode code={r.currentNcl} />
                 {r.committedDate ? <span className="body-sm" style={{ fontSize: 11 }}>{r.committedDate}</span> : <SLAIndicator req={r} />}
@@ -474,9 +530,29 @@ function LB03_Live({ params, nav, role }) {
 /* LB-05 archive kept (reachable via deep link / search) */
 function LB05_Approved() {
   window.useStore();
-  const reqs = DL.REQUIREMENTS.filter(r => ["Archived"].includes(r.status));
-  return <div className="col gap-5"><PageHead title="Approved projects" sub="Archived — immutable thread" />
-    {reqs.length ? <ReqTable rows={reqs} onOpen={() => {}} cols={["id", "brand", "title", "type", "code", "status"]} /> : <div className="card"><div className="body-sm">No archived projects yet.</div></div>}
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const done = DL.REQUIREMENTS.filter(r => ["Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"].includes(r.status));
+  const parse = s => { const t2 = Date.parse(s); return isNaN(t2) ? null : t2; };
+  const rows = done.filter(r => { const dd = parse(r.dispatchedOn); if (!dd) return !from && !to;
+    if (from && dd < Date.parse(from)) return false; if (to && dd > Date.parse(to) + 86399000) return false; return true; });
+  return <div className="col gap-5">
+    <PageHead title="Dispatch history" sub="Every dispatch, past and current — filter any date range (the 7-year sheet, digitised)."
+      actions={<div className="row gap-2" style={{ alignItems: "center" }}>
+        <span className="label" style={{ fontSize: 9 }}>From</span><input className="input" type="date" style={{ width: 150, height: 34 }} value={from} onChange={e => setFrom(e.target.value)} />
+        <span className="label" style={{ fontSize: 9 }}>To</span><input className="input" type="date" style={{ width: 150, height: 34 }} value={to} onChange={e => setTo(e.target.value)} />
+        {(from || to) && <button className="btn btn-ghost btn-sm" onClick={() => { setFrom(""); setTo(""); }}>Clear</button>}
+      </div>} />
+    <div className="card" style={{ padding: 0 }}>
+      {rows.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>Units</Th><Th>Packaging</Th><Th>Dispatched on</Th><Th>Docket</Th><Th>Status</Th></tr></thead>
+        <tbody>{window.vvipSort(rows).map(r => <tr key={r.id} className="clickable" onClick={() => {}}>
+          <Td mono><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.id}</span></Td>
+          <Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td mono>{r.moq}</Td><Td>{r.packaging}</Td>
+          <Td mono>{(r.dispatchedOn || "—").replace(" 2026", "")}</Td>
+          <Td mono>{(r.dispatch && r.dispatch.docket) || ("DTDC-88" + (4200 + (parseInt(r.id.slice(-3)) || 0)))}</Td>
+          <Td><StatusPill status={r.status} size="sm" /></Td></tr>)}</tbody></table></div>
+        : <div style={{ textAlign: "center", padding: 36 }}><Icon name="search" size={20} color="var(--brand-light)" /><div className="body-sm" style={{ marginTop: 6 }}>No dispatches in this date range.</div></div>}
+    </div>
   </div>;
 }
 

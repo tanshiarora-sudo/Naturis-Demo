@@ -286,6 +286,57 @@ function LM04_Reports() {
   </div>;
 }
 
+/* ====================================================================
+   LM-05 · PLANNING DESK (centralised station allocation — 12 Jun meeting)
+   ==================================================================== */
+function LM05_Planning({ nav }) {
+  window.useStore();
+  const reqs = DLM.REQUIREMENTS;
+  // queue: accepted / on-bench queries without a booked slot — FIFO with VVIP first
+  const queue = window.vvipSort(reqs.filter(r => ["Accepted — date committed", "Formulation", "Trial"].includes(r.status) && !(((r.evaluation || {}).slot || "").includes("Station"))));
+  const booked = reqs.filter(r => ((r.evaluation || {}).slot || "").includes("Station"));
+  const [sel, setSel] = useState(queue[0] ? queue[0].id : null);
+  const [slotSel, setSlotSel] = useState(null);
+  const req = sel && reqs.find(r => r.id === sel);
+  function book() {
+    if (!req || !slotSel) return;
+    window.NaturisStore.setEvaluation(req.id, { slot: slotSel.label + " — " + req.id, slotSel });
+    window.NaturisStore._notify(req.id, "dispatch", "info", req.id + " slot booked", slotSel.label + " · by the planning desk.", "NR-04");
+    setSlotSel(null); const next = queue.filter(r => r.id !== req.id)[0]; setSel(next ? next.id : null);
+  }
+  return <div className="col gap-5">
+    <PageHead title="Planning desk" sub="Asha & Vikram · centralised station allocation at the lab meeting — 8 stations, 3–4 products per station per day, FIFO with VVIP priority." />
+    <div className="grid gap-4" style={{ gridTemplateColumns: "330px 1fr", alignItems: "start" }}>
+      <div className="col gap-3">
+        <div className="card" style={{ padding: 8 }}>
+          <div className="label" style={{ padding: "6px 8px" }}>Awaiting a slot ({queue.length}) · VVIP first, then FIFO</div>
+          {queue.length ? queue.map(r => { const on = r.id === sel;
+            return <button key={r.id} onClick={() => setSel(r.id)} style={{ width: "100%", textAlign: "left", padding: 10, borderRadius: 8, border: "none", marginBottom: 2, cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
+              <div className="row gap-2" style={{ flexWrap: "wrap" }}>{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10.5 }}>{r.id.slice(-4)}</span></div>
+              <div style={{ fontSize: 13, fontWeight: on ? 700 : 500, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
+              <div className="body-sm" style={{ fontSize: 11 }}>{techOf(r)} · {r.status}</div>
+            </button>; }) : <div className="body-sm" style={{ padding: "4px 8px" }}>Everything has a slot. 🎉</div>}
+        </div>
+        <div className="card" style={{ padding: 8 }}>
+          <div className="label" style={{ padding: "6px 8px" }}>Booked ({booked.length})</div>
+          {booked.slice(0, 8).map(r => <div key={r.id} style={{ padding: "7px 8px", borderBottom: "1px solid var(--border)" }}>
+            <div className="row between"><span style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.brand} · {r.title}</span></div>
+            <div className="body-sm mono" style={{ fontSize: 10.5, color: "var(--brand-mid)" }}>{(r.evaluation || {}).slot}</div>
+          </div>)}
+        </div>
+      </div>
+      <div className="card">
+        {req ? <div className="row between wrap gap-2" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "var(--brand-wash)" }}>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Booking for: <span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title} <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{req.id}</span></span>
+          <button className="btn btn-sm" disabled={!slotSel} onClick={book}><Icon name="check" size={13} /> Book this slot</button>
+        </div> : <div className="body-sm" style={{ marginBottom: 12 }}>Pick a query from the queue to allocate its station.</div>}
+        <LabStationCalendar value={slotSel} onChange={setSlotSel} title="Station allocation" />
+      </div>
+    </div>
+  </div>;
+}
+
 Object.assign(window.SCREENS, {
+  "LM-05": LM05_Planning,
   "LM-01": LM01_Dashboard, "LM-02": LM02_Oversight, "LM-03": LM03_Planning, "LM-04": LM04_Reports,
 });

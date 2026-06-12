@@ -814,7 +814,7 @@ function LiveTable({ rows, nav }) {
     <tbody>{window.vvipSort(rows).map(r => <tr key={r.id} className="clickable" onClick={() => nav("SM-03", { reqId: r.id })}>
       <Td mono><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.id}</span></Td><Td><span style={{ fontWeight: 700 }}>{r.brand}</span></Td><Td><span style={{ fontWeight: 500 }}>{r.title}</span></Td>
       <Td><span className="row gap-2"><Avatar name={r.submittedBy} size={22} /><span className="body-sm" style={{ fontSize: 12 }}>{r.submittedBy}</span></span></Td>
-      <Td><ProjectTypePill type={r.projectType} /></Td><Td><div className="row gap-2"><StatusPill status={r.status} size="sm" /><SLAIndicator req={r} />{(r.flags || []).some(f => !f.resolved) && <span className="pill pill-sm" style={{ background: "var(--coral-wash)", color: "var(--coral-dark)" }}><Icon name="flag" size={10} color="var(--coral-dark)" /> {(r.flags || []).filter(f => !f.resolved).length}</span>}</div></Td><Td><StartDate req={r} /></Td></tr>)}</tbody></table></div>;
+      <Td><ProjectTypePill type={r.projectType} /></Td><Td><div className="row gap-2"><StatusPill status={r.status} size="sm" />{r.labStage && <span className="pill pill-sm" style={{ background: "var(--lab-bg)", color: "var(--lab-fg)" }}>{r.labStage}</span>}<SLAIndicator req={r} />{(r.flags || []).some(f => !f.resolved) && <span className="pill pill-sm" style={{ background: "var(--coral-wash)", color: "var(--coral-dark)" }}><Icon name="flag" size={10} color="var(--coral-dark)" /> {(r.flags || []).filter(f => !f.resolved).length}</span>}</div></Td><Td><StartDate req={r} /></Td></tr>)}</tbody></table></div>;
 }
 function SMLive_Requirements({ nav }) {
   window.useStore();

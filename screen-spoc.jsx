@@ -13,8 +13,12 @@ function vvipSort(list) {
 }
 
 /* ---------- SHARED: ReqTable ---------- */
+function TATZone({ days }) {
+  const zone = days < 7 ? ["var(--approved-bg)", "var(--approved-fg)", "green"] : days <= 10 ? ["var(--review-bg)", "var(--review-fg)", "orange"] : ["var(--coral-wash)", "var(--coral-dark)", "critical"];
+  return <span className="pill pill-sm" style={{ background: zone[0], color: zone[1], fontWeight: 700 }} title={days + " working days in pipeline"}>{zone[2]}</span>;
+}
 function ReqTable({ rows, onOpen, cols }) {
-  const show = cols || ["id", "brand", "title", "type", "code", "status", "age"];
+  const show = cols || ["id", "brand", "title", "type", "code", "status", "tat", "age"];
   const sorted = vvipSort(rows);
   if (!sorted.length) return <div style={{ textAlign: "center", padding: "34px 16px" }}>
     <Icon name="search" size={20} color="var(--brand-light)" />
@@ -29,6 +33,7 @@ function ReqTable({ rows, onOpen, cols }) {
         {show.includes("type") && <Th>Type</Th>}
         {show.includes("code") && <Th>NTL / NCL</Th>}
         {show.includes("status") && <Th>Status · SLA</Th>}
+        {show.includes("tat") && <Th>TAT zone</Th>}
         {show.includes("age") && <Th>Started</Th>}
       </tr></thead>
       <tbody>
@@ -39,6 +44,7 @@ function ReqTable({ rows, onOpen, cols }) {
           {show.includes("type") && <Td><ProjectTypePill type={r.projectType} /></Td>}
           {show.includes("code") && <Td><FormulationCode code={r.currentNcl || r.ntl} /></Td>}
           {show.includes("status") && <Td><div className="row gap-2"><StatusPill status={r.status} size="sm" /><SLAIndicator req={r} /></div></Td>}
+          {show.includes("tat") && <Td>{["Archived", "Client approved", "Rejected"].includes(r.status) ? <span className="body-sm">—</span> : <TATZone days={r.age} />}</Td>}
           {show.includes("age") && <Td><StartDate req={r} /></Td>}
         </tr>)}
       </tbody>
@@ -1066,6 +1072,7 @@ function SP04_Detail({ params, nav, role }) {
           <ProjectTypePill type={req.projectType} showLabel size="lg" />
           <span className="mono" style={{ fontSize: 13, color: "var(--muted)" }}>{req.id}</span>
           <StatusPill status={req.status} />
+          {req.labStage && <span className="pill pill-sm" style={{ background: "var(--lab-bg)", color: "var(--lab-fg)", fontWeight: 700 }}><Icon name="work" size={10} color="var(--lab-fg)" /> Lab: {req.labStage}</span>}
           <SLAIndicator req={req} mini={false} />
           <StartDate req={req} />
         </div>
@@ -1359,6 +1366,7 @@ function RequirementPopup({ open, onClose, reqId, tab: initialTab }) {
               <span className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--brand-mid)" }}>{req.id}</span>
               <ProjectTypePill type={req.projectType} />
               <StatusPill status={req.status} size="sm" />
+              {req.labStage && <span className="pill pill-sm" style={{ background: "var(--lab-bg)", color: "var(--lab-fg)", fontWeight: 700 }}>Lab: {req.labStage}</span>}
               {openFlags.length > 0 && <span className="pill pill-sm" style={{ background: "var(--coral-wash)", color: "var(--coral-dark)" }}>
                 <Icon name="flag" size={10} color="var(--coral-dark)" /> {openFlags.length} open flag{openFlags.length > 1 ? "s" : ""}</span>}
             </div>

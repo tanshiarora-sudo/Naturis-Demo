@@ -423,7 +423,11 @@ const REQUIREMENTS = [
     owner: "Sales SPOC", ownership: "escalated" },
 ].map(function (r) { return Object.assign({}, REQ_DEFAULTS, r); });
 var DESK_TECH = { EPD: "Sumit Choudhary", REN: "Meera Iyer", TT: "Tariq Khan", NPD: "Arjun Nair" };
+var SEED_LABSTAGE = { "Formulation": "Sheet pending", "Trial": "Under lab trials", "QC": "QC testing", "Fill": "Ready — awaiting QC", "Ready for dispatch": "Ready to send", "Dispatch awaiting SPOC approval": "Ready to send", "Sent to client": "Dispatched", "Client approved": "Dispatched", "In stability": "Dispatched", "Archived": "Dispatched" };
+var SEED_DISPATCH_DATE = { "Dispatch awaiting SPOC approval": "9 Jun 2026", "Sent to client": "5 Jun 2026", "Client approved": "28 May 2026", "In stability": "22 May 2026", "Archived": "5 May 2026" };
 REQUIREMENTS.forEach(function (r) {
+  if (!r.labStage && SEED_LABSTAGE[r.status]) r.labStage = SEED_LABSTAGE[r.status];
+  if (!r.dispatchedOn && SEED_DISPATCH_DATE[r.status]) r.dispatchedOn = SEED_DISPATCH_DATE[r.status];
   r.createdBy = r.submittedBy; r.account = r.account || r.brand; r.manualFlag = (r.flags || []).length > 0;
   var t = DESK_TECH[r.projectType];
   if (r.tracker) r.tracker = t;
@@ -628,6 +632,8 @@ window.NaturisStore = {
   resendForApproval(id, clarification, by) { const r = this.get(id); if (r) { r.status = "Pending review"; r.spocClarification = clarification; this.log(id, { kind: "approval", icon: "history", stage: "Resent for approval", actor: by, role: "SPOC", at: "just now", detail: "Clarified & resent: " + clarification, current: true }); this._notify(id, "queue", "info", id + " resent for your review", clarification, "NR-02"); } _bump(); },
   closeLost(id, reason, by) { const r = this.get(id); if (r) { r.status = "Archived"; r.lost = true; r.lostReason = reason; this.log(id, { kind: "status", icon: "archive", stage: "Closed — lost", actor: by, role: "SPOC", at: "just now", detail: "Closed as lost: " + reason, current: true }); this._notify(id, "flag", "med", id + " closed as lost", reason, "NR-04"); } _bump(); },
   markAllRead() { NOTIFICATIONS.forEach(n => { n.read = true; }); _bump(); },
+  assign(id, tech, by) { const r = this.get(id); if (r) { r.tracker = tech; r.status = "Acknowledged"; r.owner = "Lab"; this.log(id, { kind: "assigned", icon: "team", stage: "Acknowledged & assigned", actor: by, role: "Lab Manager", at: "just now", detail: "Lab manager acknowledged — assigned to " + tech + ".", current: true }); this._notify(id, "queue", "info", id + " assigned to " + tech, "Acknowledged by the lab manager.", "NR-04"); } _bump(); },
+  setLabStage(id, stage, by) { const r = this.get(id); if (r) { r.labStage = stage; const core = window.NaturisData.LAB_STAGE_TO_STATUS[stage]; if (core && ["Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch"].includes(r.status)) r.status = core; this.log(id, { kind: "status", icon: "work", stage: stage, actor: by, role: "Lab", at: "just now", detail: "Live lab status → " + stage, current: true }); this._notify(id, "dispatch", "info", id + " — " + stage, "Live lab status updated. Visible to sales.", "NR-04"); } _bump(); },
   setPrePO(id, key, val, by) { const r = this.get(id); if (r) { r.prePO = r.prePO || {}; r.prePO[key] = val; const item = (window.NaturisData.PRE_PO_ITEMS.find(x => x[0] === key) || [])[1] || key; this.log(id, { kind: val ? "approval" : "status", icon: val ? "check" : "work", stage: "Pre-PO checklist", actor: by, role: "System", at: "just now", detail: item + (val ? " ✓ confirmed" : " un-ticked") }); const all = window.NaturisData.PRE_PO_ITEMS.every(x => r.prePO[x[0]]); if (all && !r.prePOComplete) { r.prePOComplete = true; this.log(id, { kind: "approval", icon: "star", stage: "Customer-ready", actor: "System", role: "System", at: "just now", detail: "Pre-PO checklist complete — customer-ready, awaiting PO.", current: true }); this._notify(id, "dispatch", "info", id + " is customer-ready — PO awaited", "All pre-PO checks done. Follow up for the PO.", "NR-04"); } if (!all) r.prePOComplete = false; } _bump(); },
   setVvipOverride(id, val, by) { const r = this.get(id); if (r) { this.addAudit({ actor: by, role: "Management", action: "VVIP override", target: id, field: "vvip", before: String(r.vvip), after: String(val), note: "Management override from command centre" }); r.vvip = val; this.log(id, { kind: "status", icon: "star", stage: "VVIP " + (val ? "set" : "removed"), actor: by, role: "Management", at: "just now", detail: "Management " + (val ? "marked this VVIP" : "removed VVIP") + " (override)." }); } _bump(); },
   saveProfile(roleKey, patch, by) { const p = window.NaturisData.PROFILE_OF[roleKey]; if (p) { Object.assign(p, patch); this.addAudit({ actor: by || p.name, role: "Self", action: "Profile updated", target: p.empId, field: Object.keys(patch).join(", "), before: "—", after: "updated", note: "Edited from profile screen" }); } _bump(); },
@@ -654,8 +660,8 @@ window.NaturisStore = {
   raiseQuery(id, text, by) { const r = this.get(id); if (r) { r.status = "Query raised"; (r.queries = r.queries || []).push({ id: "Q-" + (++_evSeq), text, by, at: "just now", resolved: false, answer: "" }); r.owner = "Sales SPOC"; this.log(id, { kind: "flag", icon: "note", stage: "Query raised", actor: by, role: "Lab", at: "just now", severity: "med", detail: "Query to SPOC: " + text, current: true }); this._notify(id, "unresponsive", "med", "Lab raised a query on " + id, text, "NR-05"); } _bump(); },
   resolveQuery(id, qid, answer, by) { const r = this.get(id); const q = r && (r.queries || []).find(x => x.id === qid); if (q) { q.resolved = true; q.answer = answer; q.answeredBy = by; const remaining = (r.queries || []).filter(x => !x.resolved).length; if (!remaining) { r.status = "Acknowledged"; r.owner = "Lab"; } this.log(id, { kind: "approval", icon: "check", stage: "Query resolved", actor: by, role: "SPOC", at: "just now", detail: "Query answered: " + answer + (remaining ? ` — ${remaining} still open.` : " — all answered, back to lab."), current: true }); this._notify(id, "dispatch", "info", "Query resolved on " + id, remaining ? remaining + " quer" + (remaining > 1 ? "ies" : "y") + " still open." : "All queries answered — back with the lab.", "NR-05"); } _bump(); },
   // ---- dispatch ----
-  dispatch(id, payload, by) { const r = this.get(id); if (r) { r.status = "Dispatch awaiting SPOC approval"; r.dispatch = Object.assign({ note: true, photos: 0, docket: "" }, payload); this.log(id, { kind: "handoff", icon: "dispatch", stage: "Dispatch drafted", actor: by, role: "Lab", at: "just now", detail: "Dispatch note + photos ready" + (payload && payload.docket ? " · docket " + payload.docket : "") + " — awaiting SPOC approval.", current: true }); this._notify(id, "dispatch", "info", "Dispatch awaiting your approval — " + id, "Lab prepared the dispatch note & photos.", "NR-04"); } _bump(); },
-  sendToClient(id, by) { const r = this.get(id); if (r) { r.status = "Sent to client"; r.owner = "Sales SPOC"; this.log(id, { kind: "handoff", icon: "dispatch", stage: "Sent to client", actor: by, role: "SPOC", at: "just now", detail: "SPOC approved — sample sent to client. Ownership with Sales.", current: true }); } _bump(); },
+  dispatch(id, payload, by) { const r = this.get(id); if (r) { r.status = "Dispatch awaiting SPOC approval"; r.dispatch = Object.assign({ note: true, photos: 0, docket: "" }, payload); this.log(id, { kind: "handoff", icon: "dispatch", stage: "Dispatch drafted", actor: by, role: "Lab", at: "just now", detail: "Dispatch note + photos ready" + (payload && payload.docket ? " · docket " + payload.docket : "") + " — awaiting SPOC approval.", current: true }); this._notify(id, "dispatch", "info", "Dispatch awaiting your approval — " + id, "Note + " + ((payload && payload.photos) || 0) + " photo(s)" + (payload && payload.docket ? " · docket " + payload.docket : "") + ".", "NR-04"); } _bump(); },
+  sendToClient(id, by) { const r = this.get(id); if (r) { r.status = "Sent to client"; r.owner = "Sales SPOC"; r.dispatchedOn = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); this.log(id, { kind: "handoff", icon: "dispatch", stage: "Sent to client", actor: by, role: "SPOC", at: "just now", detail: "SPOC approved — sample sent to client. Ownership with Sales.", current: true }); } _bump(); },
   // ---- client feedback / iteration outcome ----
   clientOutcome(id, outcome, by) { const r = this.get(id); if (r) { if (outcome === "approved") { r.status = "Client approved"; this.log(id, { kind: "approval", icon: "check", stage: "Client approved", actor: by, role: "SPOC", at: "just now", detail: "Client approved the sample.", current: true }); } else if (outcome === "rejected") { r.status = "Rejected"; this.log(id, { kind: "flag", icon: "x", stage: "Rejected", actor: by, role: "SPOC", at: "just now", severity: "high", detail: "Client rejected.", current: true }); } } _bump(); },
   // ---- stability ----
@@ -815,6 +821,16 @@ window.NaturisStore.addAudit = function (rec) {
 
 /* ---------- Regions + rich person profiles ---------- */
 window.NaturisData.REGIONS = ["North", "South", "East", "West", "Central"];
+/* 10-stage live lab status — exactly Dhruv's list (12 Jun lab meeting) */
+window.NaturisData.LAB_LIVE_STAGES = [
+  "RM / PM pending", "Sheet pending", "Formulation sheet ready", "Under lab trials",
+  "Ready — awaiting QC", "QC testing", "QC evaluation", "Rework trial", "Ready to send", "Dispatched",
+];
+window.NaturisData.LAB_STAGE_TO_STATUS = {
+  "RM / PM pending": "Formulation", "Sheet pending": "Formulation", "Formulation sheet ready": "Formulation",
+  "Under lab trials": "Trial", "Ready — awaiting QC": "QC", "QC testing": "QC", "QC evaluation": "QC",
+  "Rework trial": "Trial", "Ready to send": "Ready for dispatch",
+};
 window.NaturisData.FAMILY_CATEGORIES = {
   "Skin Care": ["Serum", "Cream", "Moisturiser", "Cleanser", "Toner", "Face Oil", "Mask", "Lotion"],
   "Hair Care": ["Shampoo", "Conditioner", "Hair Oil", "Hair Serum", "Hair Mask", "Scalp Tonic"],
@@ -901,7 +917,7 @@ window.checkRulebook = function (ingredients, base) {
 };
 
 /* ---------- persistence — created/updated records survive reloads (real-platform feel) ---------- */
-var NATURIS_STATE_KEY = "naturis.state.v7";
+var NATURIS_STATE_KEY = "naturis.state.v8";
 function _persist() {
   try {
     localStorage.setItem(NATURIS_STATE_KEY, JSON.stringify({
