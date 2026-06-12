@@ -140,6 +140,22 @@ function ProjectTypePicker({ value, onChange, aiSuggested, gateLocked }) {
 }
 
 
+/* ---------- FILTER TILES — consistent big-box filter selector ---------- */
+function FilterTiles({ options, value, onChange, min }) {
+  return <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${min || 150}px, 1fr))`, gap: 8 }}>
+    {options.map(o => { const on = value === o.key; const fg = o.fg || "var(--brand)";
+      return <button key={o.key} onClick={() => onChange(o.key)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer",
+        borderRadius: 12, padding: "12px 12px", textAlign: "left", transition: "all .15s",
+        background: on ? (o.grad || "var(--grad-brand)") : "var(--surface)", color: on ? "#fff" : "var(--ink)",
+        boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
+        {o.icon && <Icon name={o.icon} size={15} color={on ? "#fff" : fg} />}
+        {o.count != null && <div className="serif-num" style={{ fontSize: 22, marginTop: o.icon ? 4 : 0 }}>{o.count}</div>}
+        <div style={{ fontSize: o.count != null ? 10.5 : 12.5, fontWeight: 600, marginTop: 2, opacity: on ? .92 : .7, lineHeight: 1.25 }}>{o.label}</div>
+        {o.sub && <div style={{ fontSize: 10, opacity: .65, marginTop: 1 }}>{o.sub}</div>}
+      </button>; })}
+  </div>;
+}
+
 /* ---------- LAB STATION BOOKING CALENDAR (2-week view) ---------- */
 const CAL_STATIONS = [["Station 1", "Emulsion / cream"], ["Station 2", "Gel / serum"], ["Station 3", "SPF / hybrid"], ["Station 4", "Cleanser / wash"], ["Station 5", "Oil / balm"]];
 const CAL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -207,6 +223,6 @@ function LabStationCalendar({ value, onChange, title, sub }) {
 }
 
 Object.assign(window, {
-  LabStationCalendar, VVIPBadge, ProjectTypePill, PT_COLOR, FormulationCode, SLAIndicator,
+  FilterTiles, LabStationCalendar, VVIPBadge, ProjectTypePill, PT_COLOR, FormulationCode, SLAIndicator,
   Toggle, CompatibilityNote, ProjectTypePicker
 });

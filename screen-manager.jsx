@@ -270,6 +270,8 @@ function SM03_Review({ params, nav }) {
         {/* stage progress WITH timestamps — no separate activity tab */}
         <div className="card"><SectionTitle sub="Every action stamped with who & when">Stage progress</SectionTitle>
           <ProgressTimeline req={req} /></div>
+        {/* client context — on the left to balance the page */}
+        <ClientIntelMini req={req} nav={nav} />
         {/* full requirement — popup */}
         <div className="card row between" style={{ alignItems: "center" }}>
           <div><div className="h3">Full requirement</div><div className="body-sm" style={{ fontSize: 12 }}>Everything captured at intake — brief, handoff, commercials, references.</div></div>
@@ -278,15 +280,22 @@ function SM03_Review({ params, nav }) {
       </div>
 
       <div className="col gap-4">
-        {/* client intelligence mini-window */}
-        <ClientIntelMini req={req} nav={nav} />
-
-        {!overrideLocked ? <div className="card"><SectionTitle>VVIP & type override</SectionTitle>
-          <div className="row between" style={{ padding: "8px 0" }}><div><div style={{ fontWeight: 600, fontSize: 13 }}>VVIP</div><div className="body-sm" style={{ fontSize: 12 }}>Gold badge + notify Management</div></div><Toggle on={vvip} onChange={setVvip} /></div>
-          <hr className="divider" style={{ margin: "10px 0" }} />
-          <div className="label" style={{ marginBottom: 8 }}>Project type (override)</div>
+        {!overrideLocked ? <>
+        {/* VVIP — its own gold card, visually distinct from the type override */}
+        <div className="card" style={{ borderTop: "3px solid #D97706", background: "linear-gradient(150deg, #FEF3C7 0%, var(--surface) 55%)" }}>
+          <div className="row between" style={{ alignItems: "center" }}>
+            <div className="row gap-3" style={{ alignItems: "center" }}>
+              <span style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#F59E0B,#D97706)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 10px rgba(217,119,6,.35)" }}><Icon name="star" size={19} color="#fff" /></span>
+              <div><div className="h3">VVIP status</div><div className="body-sm" style={{ fontSize: 12 }}>Gold badge · force-sorted to the top everywhere · Management notified</div></div>
+            </div>
+            <Toggle on={vvip} onChange={setVvip} />
+          </div>
+          {vvip && <div className="row gap-2" style={{ marginTop: 10 }}><VVIPBadge size="sm" /><span className="body-sm" style={{ fontSize: 12, color: "#92400E", fontWeight: 600 }}>This requirement is treated as VVIP across all roles.</span></div>}
+        </div>
+        <div className="card"><SectionTitle sub="A suggestion, not a decision — your call as the gate">Project type override</SectionTitle>
           <ProjectTypePicker value={type} onChange={setType} aiSuggested={req.projectType} gateLocked={gate} />
-        </div> : <div className="card">
+        </div>
+        </> : <div className="card">
           <SectionTitle sub="Lab has acknowledged — type & VVIP are locked">Add a note to the thread</SectionTitle>
           <div style={{ padding: "8px 10px", borderRadius: 8, background: "var(--page)", marginBottom: 10 }}>
             <div className="body-sm" style={{ fontSize: 12 }}><Icon name="alert" size={12} /> Overrides are disabled once the lab acknowledges. Use a note to communicate context — it lands on the requirement timeline.</div></div>
@@ -337,6 +346,7 @@ function SM03_Review({ params, nav }) {
    ==================================================================== */
 function SM04_Team({ nav, embedded }) {
   const [tab, setTab] = useState("team");
+  const [who, setWho] = useState("all");
   const auditLog = (window.NaturisStore && window.NaturisStore.audit) || [];
   const spocs = ["Hardik Shah", "Divya Rao"].map(name => {
     const all = DM.REQUIREMENTS.filter(r => r.submittedBy === name);
@@ -362,13 +372,18 @@ function SM04_Team({ nav, embedded }) {
   const reqs = DM.REQUIREMENTS;
   return <div className="col gap-5">
     {!embedded && <PageHead title="Team pipeline" />}
-    <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10, width: "fit-content" }}>
-      {[["team", "Team members"], ["other", "Other live requirements"]].map(([v, l]) => <button key={v} onClick={() => setTab(v)} className="btn btn-sm" style={{ background: tab === v ? "var(--surface)" : "transparent", color: tab === v ? "var(--brand)" : "var(--muted)", boxShadow: tab === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
-    </div>
+    <FilterTiles min={200} value={tab} onChange={setTab} options={[
+      { key: "team", label: "Team members", icon: "team", count: spocs.length },
+      { key: "other", label: "Other live requirements", icon: "list", count: reqs.filter(r => r.ownership !== "shared" && r.status !== "Archived").length },
+    ]} />
+    {tab === "team" && <FilterTiles min={150} value={who} onChange={setWho} options={[
+      { key: "all", label: "All SPOCs", icon: "team", count: spocs.length },
+      ...spocs.map(sp => ({ key: sp.name, label: sp.name, icon: "user", count: sp.active, sub: sp.flags ? sp.flags + " flag" + (sp.flags > 1 ? "s" : "") : "no flags" })),
+    ]} />}
     {tab === "team" ? <>
       {/* view angle: person → brand → requirement */}
       <div className="col gap-4">
-        {spocs.map(s => {
+        {spocs.filter(s => who === "all" || s.name === who).map(s => {
           const items = reqs.filter(r => r.submittedBy === s.name && r.status !== "Archived");
           const brands = Array.from(new Set(items.map(r => r.brand)));
           return <div key={s.name} className="card">
@@ -755,9 +770,9 @@ function SM02_Intervention({ nav }) {
             <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ color: "var(--brand-mid)" }}>{it.r.brand}</span> · {it.r.title}</span>
             <span className="body-sm" style={{ fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{flag ? (it.f.typeLabel || it.f.type) : "review & decide"}</span>
           </div>
-          <div className="row gap-2" style={{ flexShrink: 0 }}>
+          <div className="row gap-2" style={{ flexShrink: 0, alignItems: "center" }}>
+            <span className="row gap-2" style={{ alignItems: "center" }}><Avatar name={it.r.submittedBy} size={20} /><span className="body-sm" style={{ fontSize: 12, fontWeight: 600 }}>{it.r.submittedBy}</span></span>
             <ProjectTypePill type={it.r.projectType} />
-            <SLAIndicator req={it.r} />
             <button className="btn btn-sm btn-secondary" onClick={e => { e.stopPropagation(); nav("SM-03", { reqId: it.r.id }); }}>Open</button>
           </div>
         </div>; })}
@@ -858,9 +873,10 @@ function SMPipe_TeamPipeline({ nav }) {
   const [tab, setTab] = useState("team");
   return <div className="col gap-5">
     <PageHead title="Team pipeline" sub="Team workload & performance reports" actions={<button className="btn btn-secondary"><Icon name="download" size={15} /> Export</button>} />
-    <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10, width: "fit-content" }}>
-      {[["team", "Team & workload"], ["reports", "Reports"]].map(([v, l]) => <button key={v} onClick={() => setTab(v)} className="btn btn-sm" style={{ background: tab === v ? "var(--surface)" : "transparent", color: tab === v ? "var(--brand)" : "var(--muted)", boxShadow: tab === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
-    </div>
+    <div style={{ maxWidth: 460 }}><FilterTiles min={200} value={tab} onChange={setTab} options={[
+      { key: "team", label: "Team & workload", icon: "team" },
+      { key: "reports", label: "Reports", icon: "report" },
+    ]} /></div>
     {tab === "team" ? <SM04_Team nav={nav} embedded /> : <SM06_Reports embedded />}
   </div>;
 }

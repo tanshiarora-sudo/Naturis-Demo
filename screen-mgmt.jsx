@@ -46,17 +46,7 @@ function MG01_Command({ nav }) {
 
     {/* 1 — VVIP projects, always top */}
     <div className="card" style={{ borderTop: "3px solid #D97706" }}>
-      <div className="row between" style={{ marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-        <div className="row gap-2"><Icon name="star" size={16} color="#D97706" /><span className="h3">VVIP projects</span></div>
-        {/* management override: mark any project VVIP even if the system didn't */}
-        <div className="row gap-2">
-          <select className="select" style={{ width: 250, height: 34, fontSize: 12 }} value={vvipPick} onChange={e => setVvipPick(e.target.value)}>
-            <option value="">Override: mark a project VVIP…</option>
-            {reqs.filter(r => !r.vvip && r.status !== "Archived").map(r => <option key={r.id} value={r.id}>{r.brand} · {r.title}</option>)}
-          </select>
-          <button className="btn btn-sm" disabled={!vvipPick} onClick={() => { window.NaturisStore.setVvipOverride(vvipPick, true, "Rahul Tandon"); setVvipPick(""); }}><Icon name="star" size={13} /> Mark VVIP</button>
-        </div>
-      </div>
+      <div className="row gap-2" style={{ marginBottom: 14 }}><Icon name="star" size={16} color="#D97706" /><span className="h3">VVIP projects</span></div>
       <div className="grid grid-3 gap-3">
         {vvips.map(r => <div key={r.id} onClick={() => setPopupId(r.id)} style={{ padding: 14, borderRadius: 10, background: "var(--brand-wash)", cursor: "pointer" }}>
           <div className="row between" style={{ marginBottom: 6 }}><VVIPBadge size="sm" /><SLAIndicator req={r} /></div>
@@ -67,6 +57,15 @@ function MG01_Command({ nav }) {
               <div key={l} style={{ fontSize: 11 }}><span className="label" style={{ fontSize: 7.5 }}>{l}</span><div style={{ fontWeight: 600, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</div></div>)}
           </div>
         </div>)}
+      </div>
+      {/* management override — quiet footer, not competing with the cards */}
+      <div className="row gap-2" style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--border)", alignItems: "center", flexWrap: "wrap" }}>
+        <span className="body-sm" style={{ fontSize: 11.5 }}>Management override — promote a project the system didn't flag:</span>
+        <select className="select" style={{ width: 240, height: 32, fontSize: 12 }} value={vvipPick} onChange={e => setVvipPick(e.target.value)}>
+          <option value="">Choose a project…</option>
+          {reqs.filter(r => !r.vvip && r.status !== "Archived").map(r => <option key={r.id} value={r.id}>{r.brand} · {r.title}</option>)}
+        </select>
+        <button className="btn btn-sm btn-secondary" disabled={!vvipPick} onClick={() => { window.NaturisStore.setVvipOverride(vvipPick, true, "Rahul Tandon"); setVvipPick(""); }}><Icon name="star" size={13} /> Mark VVIP</button>
       </div>
     </div>
 
@@ -122,24 +121,34 @@ function MG01_Command({ nav }) {
 /* ====================================================================
    MG-02 · BRANDS
    ==================================================================== */
+const BRAND_HUES = {
+  Nykaa:   ["#EC4899", "#FCE7F3"],
+  Plum:    ["#8B5CF6", "#EDE9FE"],
+  Pilgrim: ["#0D9488", "#CCFBF1"],
+  Asaya:   ["#D97706", "#FEF3C7"],
+  Nua:     ["#CC5248", "#FDE8E6"],
+};
 function MG02_Brands({ nav }) {
   return <div className="col gap-5">
     <PageHead title="Brands" sub="Per-brand performance & mix" />
     <div className="grid grid-2 gap-4">
       {DG.ACCOUNTS.map(a => {
         const mix = ["EPD", "REN", "TT", "NPD"].map((t, i) => ({ t, n: ((a.id.charCodeAt(5) + i * 3) % 5) + 1 }));
-        return <div key={a.id} className="card">
+        const [hue, wash] = BRAND_HUES[a.name] || ["var(--brand)", "var(--brand-wash)"];
+        return <div key={a.id} className="card" style={{ padding: 0, overflow: "hidden", borderTop: `3px solid ${hue}` }}>
+          <div style={{ padding: "18px 20px 16px", background: `linear-gradient(150deg, ${wash} 0%, var(--surface) 65%)` }}>
           <div className="row between" style={{ marginBottom: 14 }}>
-            <div className="row gap-3"><div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--brand-wash)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="brand" size={20} color="var(--brand)" /></div>
+            <div className="row gap-3"><div style={{ width: 40, height: 40, borderRadius: 10, background: hue, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 10px ${hue}55` }}><span style={{ color: "#fff", fontWeight: 800, fontSize: 16, fontFamily: "var(--f-ui)" }}>{a.name[0]}</span></div>
               <div><div className="h3">{a.name}{a.vvip && <span style={{ marginLeft: 6 }}><Icon name="star" size={13} color="#D97706" /></span>}</div><div className="body-sm" style={{ fontSize: 12 }}>{a.segment} · {a.website}</div></div></div>
-            <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)" }}>{a.rating}★</span>
+            <span className="pill pill-sm" style={{ background: "var(--surface)", color: hue, fontWeight: 700 }}>{a.rating}★</span>
           </div>
           <div className="grid grid-3 gap-2" style={{ marginBottom: 12 }}>
-            {[["Avg order", a.avgOrderValue], ["Live", mix.reduce((s, m) => s + m.n, 0)], ["Approved", a.rating * 2]].map(([l, v]) => <div key={l} style={{ textAlign: "center" }}><div className="serif-num" style={{ fontSize: 22 }}>{v}</div><div className="label" style={{ fontSize: 9 }}>{l}</div></div>)}
+            {[["Avg order", a.avgOrderValue], ["Live", mix.reduce((s, m) => s + m.n, 0)], ["Approved", a.rating * 2]].map(([l, v]) => <div key={l} style={{ textAlign: "center", padding: "8px 4px", borderRadius: 10, background: "var(--surface)", border: "1px solid var(--border)" }}><div className="serif-num" style={{ fontSize: 22, color: hue }}>{v}</div><div className="label" style={{ fontSize: 9 }}>{l}</div></div>)}
           </div>
           <div className="label" style={{ marginBottom: 6 }}>Project-type mix</div>
           <div className="row gap-2">{mix.map(m => <div key={m.t} className="row gap-1"><ProjectTypePill type={m.t} /><span className="mono" style={{ fontSize: 11 }}>{m.n}</span></div>)}</div>
-          <button className="btn btn-secondary btn-sm" style={{ marginTop: 12, width: "100%" }} onClick={() => nav("CI-01")}><Icon name="intel" size={14} /> Client intelligence</button>
+          <button className="btn btn-sm" style={{ marginTop: 12, width: "100%", background: hue, boxShadow: `0 4px 10px ${hue}44` }} onClick={() => nav("CI-01")}><Icon name="intel" size={14} /> Client intelligence</button>
+          </div>
         </div>;
       })}
     </div>
@@ -225,6 +234,8 @@ function MG04_Tracker({ nav }) {
   const [q, setQ] = useState("");
   const [popupId, setPopupId] = useState(null);
   const [colsOpen, setColsOpen] = useState(false);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState(1);
   const COMPACT_COLS = ["brand", "project", "size", "packType", "tt", "targetFg", "targetRmc", "lastCode", "stage", "feedback", "stClient", "locked", "po", "launchQty"];
   const [visCols, setVisCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem("naturis.tracker.cols")); return Array.isArray(v) && v.length ? v : TRK_COLS.map(c => c[0]); } catch (e) { return TRK_COLS.map(c => c[0]); } });
   function saveCols(v) { setVisCols(v); try { localStorage.setItem("naturis.tracker.cols", JSON.stringify(v)); } catch (e) {} }
@@ -236,7 +247,8 @@ function MG04_Tracker({ nav }) {
     a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" }));
     a.download = "naturis-master-tracker.csv"; a.click(); URL.revokeObjectURL(a.href);
   }
-  const rows = trackerRows().filter(r => (!brand || r.brand === brand) && (!q || (r.brand + " " + r.project + " " + r.stage).toLowerCase().includes(q.toLowerCase())));
+  let rows = trackerRows().filter(r => (!brand || r.brand === brand) && (!q || (r.brand + " " + r.project + " " + r.stage).toLowerCase().includes(q.toLowerCase())));
+  if (sortKey) rows = [...rows].sort((a, b) => String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), undefined, { numeric: true }) * sortDir);
   const brands = Array.from(new Set(DG.REQUIREMENTS.map(r => r.brand)));
   const YN = v => v === "Yes" ? <span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)" }}>Yes</span>
     : v === "No" ? <span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)" }}>No</span> : v;
@@ -269,14 +281,16 @@ function MG04_Tracker({ nav }) {
       <div className="body-sm" style={{ marginTop: 4 }}>Try clearing the brand filter or the search.</div>
     </div>}
     {rows.length > 0 && <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ overflowX: "auto", maxHeight: "68vh", overflowY: "auto" }}>
-        <table className="tbl" style={{ minWidth: SHOWN.length > 16 ? 3300 : SHOWN.length * 140 }}>
+      <div style={{ overflowX: "auto", maxHeight: "74vh", overflowY: "auto" }}>
+        <table className="tbl" style={{ minWidth: SHOWN.length > 16 ? 2700 : SHOWN.length * 120 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
-            <tr>{SHOWN.map(([k, label, def]) => <th key={k} title={def} style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "10px 12px", whiteSpace: "nowrap", textAlign: "left", cursor: "help" }}>{label}</th>)}</tr>
+            <tr>{SHOWN.map(([k, label, def]) => <th key={k} title={def + " — click to sort"} onClick={() => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(1); } }}
+              style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "8px 10px", whiteSpace: "nowrap", textAlign: "left", cursor: "pointer", userSelect: "none" }}>
+              {label}{sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>)}</tr>
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} className="clickable" title="Click to open the full requirement" onClick={() => setPopupId(r.id)}>
-              {SHOWN.map(([k]) => <td key={k} style={{ padding: "9px 12px", fontSize: 12, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
+              {SHOWN.map(([k]) => <td key={k} style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
                 {k === "brand" ? <span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}<b>{r.brand}</b></span>
                   : k === "stage" ? <StatusPill status={r.stage} size="sm" />
                   : k === "lastCode" || k === "locked" ? <span className="mono" style={{ fontSize: 11.5 }}>{r[k]}</span>

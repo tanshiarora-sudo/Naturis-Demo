@@ -1386,6 +1386,10 @@ function RequirementPopup({ open, onClose, reqId, tab: initialTab }) {
               <div className="label" style={{ fontSize: 8.5, marginTop: 3, paddingLeft: 22 }}>{q.at}</div>
             </div>)}
           </div>}
+          {req.prePO && <div className="card" style={{ borderTop: "2px solid var(--brand-accent)" }}>
+            <div className="label" style={{ marginBottom: 8 }}>Pre-PO checklist {Object.values(req.prePO).filter(Boolean).length}/{(window.NaturisData.PRE_PO_ITEMS || []).length}{req.prePOComplete ? " · customer-ready, PO awaited" : ""}</div>
+            <div className="row gap-2 wrap">{(window.NaturisData.PRE_PO_ITEMS || []).map(([k, lbl]) => <span key={k} className="pill pill-sm" style={{ background: req.prePO[k] ? "var(--approved-bg)" : "var(--page)", color: req.prePO[k] ? "var(--approved-fg)" : "var(--muted)" }}>{req.prePO[k] ? "✓ " : "○ "}{lbl}</span>)}</div>
+          </div>}
           <div className="card"><ProgressTimeline req={req} /></div>
         </>}
       </div>
