@@ -54,7 +54,7 @@ function LB01_Dashboard({ nav }) {
       </div>
       <div className="col">
         {needAck.length ? needAck.slice(0, 5).map(r => <div key={r.id} className="row between clickable" style={{ padding: "13px 20px", borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => nav("LB-02")}>
-          <div className="row gap-3">{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 12 }}>{r.id}</span><span style={{ fontWeight: 600 }}>{r.title}</span><span className="body-sm" style={{ fontSize: 12 }}>{r.brand}</span><Aging days={r.age} /></div>
+          <div className="row gap-3">{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 12 }}>{r.id}</span><span style={{ fontWeight: 600 }}>{r.title}</span><span className="body-sm" style={{ fontSize: 12 }}>{r.brand}</span><StartDate req={r} /></div>
           <button className="btn btn-sm" onClick={e => { e.stopPropagation(); window.NaturisStore.acknowledge(r.id, techOfReq(r)); }}><Icon name="check" size={14} /> Acknowledge</button>
         </div>) : <div className="body-sm" style={{ padding: "20px", textAlign: "center" }}>All acknowledged — clear queue. 🎉</div>}
       </div>
@@ -123,7 +123,7 @@ function LB02_Incoming({ nav }) {
               <div className="row gap-2" style={{ flexWrap: "wrap" }}>
                 {r.vvip && <VVIPBadge size="sm" />}
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--brand-mid)", fontWeight: 600 }}>{r.id}</span>
-                <Aging days={r.age} />
+                <StartDate req={r} />
               </div>
               <div style={{ fontWeight: 700, fontSize: 14.5, marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
               <div className="body-sm" style={{ fontSize: 12 }}>SPOC {r.submittedBy} · {r.category}</div>

@@ -135,9 +135,9 @@ function MG01_Command({ nav }) {
     {stage && <div className="card" style={{ padding: 0 }}>
       <div className="row between" style={{ padding: "14px 18px" }}><div className="h3">{stage} — {stageReqs.length} requirement{stageReqs.length !== 1 ? "s" : ""}</div>
         <button className="btn btn-ghost btn-sm" onClick={() => setStage(null)}><Icon name="x" size={14} /> Close</button></div>
-      <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>SPOC</Th><Th>Status</Th><Th>Age</Th></tr></thead>
+      <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>SPOC</Th><Th>Status</Th><Th>Started</Th></tr></thead>
         <tbody>{window.vvipSort(stageReqs).map(r => <tr key={r.id} className="clickable" onClick={() => setPopupId(r.id)}>
-          <Td mono>{r.id}</Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td>{r.submittedBy}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><Aging days={r.age} /></Td></tr>)}</tbody></table></div>
+          <Td mono>{r.id}</Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td>{r.submittedBy}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><StartDate req={r} /></Td></tr>)}</tbody></table></div>
     </div>}
 
   </div>;
@@ -464,8 +464,8 @@ function MG03_Reports({ nav }) {
       </div>
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: "16px 18px 0" }}><SectionTitle sub="Live projects ageing past 30 days">Stuck pipeline</SectionTitle></div>
-        {stuck.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>Status</Th><Th>Age</Th></tr></thead>
-          <tbody>{stuck.map(r => <tr key={r.id}><Td mono><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.id}</span></Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><Aging days={r.age} /></Td></tr>)}</tbody></table></div>
+        {stuck.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>Status</Th><Th>Started</Th></tr></thead>
+          <tbody>{stuck.map(r => <tr key={r.id}><Td mono><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.id}</span></Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><StartDate req={r} /></Td></tr>)}</tbody></table></div>
           : <div className="body-sm" style={{ padding: "4px 18px 18px" }}>Nothing stuck. 🎉</div>}
       </div>
       <div className="card" style={{ padding: 0 }}>

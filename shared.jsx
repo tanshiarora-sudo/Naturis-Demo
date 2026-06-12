@@ -1,6 +1,6 @@
 /* ============================================================
    shared.jsx — Icon set, StatusPill, AISuggestion, Drawer,
-   Field, Stat, Avatar, Aging, table primitives (Th/Td).
+   Field, Stat, Avatar, Aging, StartDate, table primitives (Th/Td).
    Exports to window at file end.
    ============================================================ */
 const { useState, useEffect, useRef, useMemo, createElement } = React;
@@ -120,6 +120,10 @@ function Stat({ label, value, sub, attention, onClick, suffix, color }) {
 }
 
 /* ---------- AGING ---------- */
+function StartDate({ req }) {
+  const d = ((req && req.submittedAt) || "").replace(" 2026", "");
+  return <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{d || "—"}</span>;
+}
 function Aging({ days, threshold = 7 }) {
   const over = days >= threshold;
   return <span className="mono" style={{ fontSize: 12, color: over ? "var(--coral)" : "var(--muted)",

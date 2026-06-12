@@ -29,7 +29,7 @@ function ReqTable({ rows, onOpen, cols }) {
         {show.includes("type") && <Th>Type</Th>}
         {show.includes("code") && <Th>NTL / NCL</Th>}
         {show.includes("status") && <Th>Status · SLA</Th>}
-        {show.includes("age") && <Th>Age</Th>}
+        {show.includes("age") && <Th>Started</Th>}
       </tr></thead>
       <tbody>
         {sorted.map(r => <tr key={r.id} className="clickable" onClick={() => onOpen(r)}>
@@ -39,7 +39,7 @@ function ReqTable({ rows, onOpen, cols }) {
           {show.includes("type") && <Td><ProjectTypePill type={r.projectType} /></Td>}
           {show.includes("code") && <Td><FormulationCode code={r.currentNcl || r.ntl} /></Td>}
           {show.includes("status") && <Td><div className="row gap-2"><StatusPill status={r.status} size="sm" /><SLAIndicator req={r} /></div></Td>}
-          {show.includes("age") && <Td><Aging days={r.age} /></Td>}
+          {show.includes("age") && <Td><StartDate req={r} /></Td>}
         </tr>)}
       </tbody>
     </table>
@@ -292,7 +292,7 @@ function SP02_Intake({ nav, role }) {
       aiTrack: aiType === "NPD" ? 3 : aiType === "REN" ? 2 : 1,
       aiCode: form.base === "Anhydrous" ? "NTL-LP-009" : "NTL-SR-014", aiScore: actives.length ? 72 : 88,
       aiRationale: `${actives.length} actives captured — leans ${aiType}.`, aiSimilarWork: [],
-      submittedBy: me, createdBy: me, submittedAt: "just now", age: 0, phaseDays: 0,
+      submittedBy: me, createdBy: me, submittedAt: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }), age: 0, phaseDays: 0,
       moq: form.units, packaging: form.packaging[0] ? `${form.packaging[0].desc || form.packSize} (${form.packaging[0].source === "client" ? "client" : "Naturis"})` : form.packSize,
       targetSampleDate: "TBD", budget: { unit: "₹" + fg, batch: "—" },
       actives, nonNegotiable: form.nonNeg.filter(a => a.ingredient), goodToHave: form.good.filter(a => a.ingredient),
@@ -1067,7 +1067,7 @@ function SP04_Detail({ params, nav, role }) {
           <span className="mono" style={{ fontSize: 13, color: "var(--muted)" }}>{req.id}</span>
           <StatusPill status={req.status} />
           <SLAIndicator req={req} mini={false} />
-          <Aging days={req.age} />
+          <StartDate req={req} />
         </div>
         <div className="h1" style={{ fontSize: 34 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
         <div className="body" style={{ color: "var(--muted)", marginTop: 2 }}>{req.category} · {req.base || "—"}</div>

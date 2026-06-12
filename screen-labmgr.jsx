@@ -142,7 +142,7 @@ function LM02_Oversight({ nav }) {
         <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 8 }}>{r.category}</div>
         <div className="row between">
           <span className="row gap-2"><Avatar name={techOf(r)} size={20} /><span className="body-sm" style={{ fontSize: 11 }}>{techOf(r)}</span></span>
-          <span className="row gap-2"><StatusPill status={r.status} size="sm" /><Aging days={r.age} /></span>
+          <span className="row gap-2"><StatusPill status={r.status} size="sm" /><StartDate req={r} /></span>
         </div>
       </div>
     </div>; };
@@ -226,8 +226,8 @@ function LM03_Planning({ nav }) {
         return <div key={t}><div className="row between" style={{ marginBottom: 4 }}><span className="row gap-2"><Avatar name={t} size={22} /><span style={{ fontSize: 13, fontWeight: 500 }}>{t}</span></span><span className="mono" style={{ fontSize: 12 }}>{n} active</span></div>
           <div className="bar-track" style={{ height: 12 }}><div className="bar-fill" style={{ width: pct + "%", background: pct > 80 ? "var(--coral)" : "var(--brand-accent)" }} /></div></div>; })}</div></div>}
     {tab === "ageing" && <div className="card" style={{ padding: 0 }}><div style={{ padding: "16px 18px" }}><SectionTitle>Ageing analysis · oldest active</SectionTitle></div>
-      {ageing.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Tech</Th><Th>Status</Th><Th>Age</Th></tr></thead>
-        <tbody>{ageing.map(r => <tr key={r.id} className="clickable" onClick={() => nav("LB-03", { reqId: r.id })}><Td mono>{r.id}</Td><Td>{r.brand}</Td><Td>{techOf(r)}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><Aging days={r.age} /></Td></tr>)}</tbody></table></div>
+      {ageing.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Tech</Th><Th>Status</Th><Th>Started</Th></tr></thead>
+        <tbody>{ageing.map(r => <tr key={r.id} className="clickable" onClick={() => nav("LB-03", { reqId: r.id })}><Td mono>{r.id}</Td><Td>{r.brand}</Td><Td>{techOf(r)}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><StartDate req={r} /></Td></tr>)}</tbody></table></div>
         : <div className="body-sm" style={{ padding: "0 18px 18px" }}>Nothing ageing past 20 days.</div>}</div>}
   </div>;
 }
