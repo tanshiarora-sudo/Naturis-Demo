@@ -26,9 +26,9 @@ const NAV = {
   ],
   labmgr: [
     { id: "LM-01", label: "Dashboard", icon: "dashboard" },
-    { id: "LM-02", label: "Daily lab meeting", icon: "calendar", badge: true },
-    { id: "LM-03", label: "Planning & load", icon: "load" },
+    { id: "LM-02", label: "Lab meeting", icon: "calendar", badge: true },
     { id: "LB-03", label: "Live work", icon: "work" },
+    { id: "LM-03", label: "Planning & load", icon: "load" },
     { id: "LM-04", label: "Reports", icon: "report" },
     { id: "LB-05", label: "Approved projects", icon: "archive" },
   ],
@@ -64,7 +64,7 @@ const SCREEN_TITLES = {
   "SM-01": "Dashboard", "SM-02": "Review desk", "SM-03": "Review", "SM-04": "Team pipeline",
   "SM-05": "Flag review", "SM-06": "Team reports", "SM-LIVE": "Live requirements", "SM-PIPE": "Team pipeline", "CI-01": "Client intelligence",
   "LB-01": "Dashboard", "LB-02": "New requirements", "LB-EVAL": "Evaluation", "LB-03": "Work in progress", "LB-05": "Approved projects",
-  "LM-01": "Dashboard", "LM-02": "Daily lab meeting", "LM-03": "Planning & load", "LM-04": "Reports",
+  "LM-01": "Dashboard", "LM-02": "Lab meeting", "LM-03": "Planning & load", "LM-04": "Reports",
   "MG-01": "Command centre", "MG-02": "Brands", "MG-03": "Intelligence reports", "MG-04": "Master tracker",
   "GL-01": "Notifications", "AD-04": "Users", "AD-05": "Groups & access", "AD-07": "Accounts",
   "AD-08": "Notification rules", "AD-09": "Audit log", "GL-03": "Settings", "GL-02": "Profile",
@@ -80,7 +80,7 @@ function attentionCount(role, screen) {
     if (screen === "LB-EVAL") return R.filter(r => ["Acknowledged", "In evaluation"].includes(r.status)).length;
     return R.filter(r => ["Approved", "R&D assessed", "R&D assessing", "Logged"].includes(r.status)).length; // LB-02 incoming
   }
-  if (role === "labmgr") return R.filter(r => ["Approved","R&D assessed","R&D assessing","Acknowledged","In evaluation"].includes(r.status) || (r.queries||[]).some(q=>!q.resolved) || ["Declined","Rejected"].includes(r.status)).length + R.reduce((n, r) => n + (r.flags||[]).filter(f => !f.resolved && /Lab/.test(f.owner || "")).length, 0);
+  if (role === "labmgr") return R.filter(r => ["Approved","R&D assessed","R&D assessing","Acknowledged","In evaluation"].includes(r.status) || (r.queries||[]).some(q=>!q.resolved) || ["Declined","Rejected"].includes(r.status)).length + R.reduce((n, r) => n + (r.flags||[]).filter(f => !f.resolved && (/Lab/.test(f.owner || "") || f.raisedByRole === "Lab Technician")).length, 0);
   if (role === "admin") return D.NOTIFICATIONS.filter(n => !n.read).length;
   return 0;
 }

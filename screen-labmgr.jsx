@@ -146,16 +146,16 @@ function LM02_Oversight({ nav }) {
         </div>
       </div>
     </div>; };
-  const labFlags = reqs.flatMap(r => (r.flags || []).filter(f => !f.resolved && /Lab/.test(f.owner || "")).map(f => ({ f, r })));
+  const labFlags = reqs.flatMap(r => (r.flags || []).filter(f => !f.resolved && (/Lab/.test(f.owner || "") || f.raisedByRole === "Lab Technician")).map(f => ({ f, r })));
   return <div className="col gap-5">
-    <PageHead title="Daily lab meeting" sub="Every active lab workflow — click a stage tile to focus, click a card to intervene"
+    <PageHead title="Lab meeting" sub="Every active lab workflow — click a stage tile to focus, click a card to intervene"
       actions={<div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10 }}>
         {[["stage", "By stage"], ["tech", "By technician"]].map(([v, l]) => <button key={v} onClick={() => setView(v)} className="btn btn-sm" style={{ background: view === v ? "var(--surface)" : "transparent", color: view === v ? "var(--brand)" : "var(--muted)", boxShadow: view === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
       </div>} />
     {/* lab-owned flags — the Lab Manager's flag queue */}
     {labFlags.length > 0 && <div className="card" style={{ border: "1px solid var(--coral)", padding: 0, overflow: "hidden" }}>
       <div className="row between" style={{ padding: "12px 18px", background: "var(--coral-wash)", borderBottom: "1px solid var(--border)" }}>
-        <span className="row gap-2"><Icon name="flag" size={15} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 14, color: "var(--coral-dark)" }}>Lab flags — your response needed</span></span>
+        <span className="row gap-2"><Icon name="flag" size={15} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 14, color: "var(--coral-dark)" }}>Lab flags — raised by or owned by the lab, your response needed</span></span>
         <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--coral-dark)", fontWeight: 700 }}>{labFlags.length}</span>
       </div>
       <div className="col gap-3" style={{ padding: 16 }}>

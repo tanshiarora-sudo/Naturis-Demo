@@ -130,7 +130,7 @@ function LB02_Incoming({ nav }) {
             </div>
           </div>
           <div className="row gap-2" style={{ flexShrink: 0 }}>
-            <button className="btn btn-sm" style={{ background: "var(--grad-brand)" }} onClick={() => setPopup({ id: r.id, tab: "brief" })}><Icon name="note" size={13} /> View brief</button>
+            <button className="btn btn-sm" style={{ background: "var(--grad-brand)" }} onClick={() => setPopup({ id: r.id, tab: "brief" })}><Icon name="note" size={13} /> View initial requirement</button>
             <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "timeline" })}><Icon name="history" size={13} /> Open timeline</button>
             <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.acknowledge(r.id, desk.tech || ME_LAB)}><Icon name="check" size={13} /> Acknowledge</button>
           </div>
@@ -252,7 +252,7 @@ function LB_Eval({ params, nav }) {
           <div><div className="row gap-2" style={{ marginBottom: 6 }}>{req.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={req.projectType} showLabel /><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{req.id}</span><StatusPill status={req.status} /></div>
             <div className="h2" style={{ fontSize: 22 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
             <div className="body-sm">SPOC {req.submittedBy} · {(DL.LAB_DESKS[req.projectType] || {}).tech} desk</div></div>
-          <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.25)" }} onClick={() => setBriefOpen(true)}><Icon name="note" size={15} /> View full brief</button>
+          <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.25)" }} onClick={() => setBriefOpen(true)}><Icon name="note" size={15} /> View initial requirement</button>
         </div>
       </div>
       <EvaluationPanel req={req} />
@@ -401,13 +401,14 @@ function WipDetail({ req, nav, role }) {
 }
 
 const WIP_TABS = [
-  ["pending", "Acknowledged · pending", EVAL_ST],
-  ["accepted", "Accepted", ["Accepted — date committed"]],
-  ["bench", "On the bench", ["Formulation", "Trial", "QC", "Fill"]],
-  ["dispatch", "Ready / dispatch", ["Ready for dispatch", "Dispatch awaiting SPOC approval"]],
-  ["stability", "In stability", ["In stability"]],
-  ["done", "Dispatched / done", ["Sent to client", "Client approved", "Archived"]],
-  ["all", "All", null],
+  ["ackpend", "Acknowledgement pending", ["Acknowledged"], "incoming"],
+  ["evalpend", "Evaluation pending", ["In evaluation", "Query raised"], "queue"],
+  ["accepted", "Accepted", ["Accepted — date committed"], "check"],
+  ["bench", "On the bench", ["Formulation", "Trial", "QC", "Fill"], "work"],
+  ["dispatch", "Ready / dispatch", ["Ready for dispatch", "Dispatch awaiting SPOC approval"], "dispatch"],
+  ["stability", "In stability", ["In stability"], "clock"],
+  ["done", "Dispatched / done", ["Sent to client", "Client approved", "Archived"], "archive"],
+  ["all", "All", null, "list"],
 ];
 const WIP_ALL = [...EVAL_ST, "Accepted — date committed", ...LAB_LIVE, ...POST];
 
@@ -416,6 +417,7 @@ function LB03_Live({ params, nav, role }) {
   const reqs = DL.REQUIREMENTS;
   const all = window.vvipSort(reqs.filter(r => WIP_ALL.includes(r.status)));
   const [tab, setTab] = useState("all");
+
   const [sel, setSel] = useState(params.reqId || null);
   const req = sel && reqs.find(r => r.id === sel);
   const tabDef = WIP_TABS.find(t => t[0] === tab);
@@ -439,10 +441,10 @@ function LB03_Live({ params, nav, role }) {
   return <div className="col gap-5">
     <PageHead title="Work in progress" sub="Every lab project as a tile — status up top. Filter by stage; click a tile to open the full view." />
     {/* status tabs */}
-    <div className="row gap-1 wrap" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10, width: "fit-content" }}>
-      {WIP_TABS.map(([v, l, sts]) => { const n = v === "all" ? all.length : all.filter(r => sts.includes(r.status)).length;
-        return <button key={v} onClick={() => setTab(v)} className="btn btn-sm" style={{ background: tab === v ? "var(--surface)" : "transparent", color: tab === v ? "var(--brand)" : "var(--muted)", boxShadow: tab === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}{n > 0 ? ` (${n})` : ""}</button>; })}
-    </div>
+    <FilterTiles min={140} value={tab} onChange={setTab} options={WIP_TABS.map(([v, lbl, sts, ic]) => ({
+      key: v, label: lbl, icon: ic,
+      count: sts ? all.filter(r => sts.includes(r.status)).length : all.length,
+    }))} />
     {shown.length === 0 ? <div className="card" style={{ textAlign: "center", padding: 40 }}><Icon name="work" size={24} color="var(--brand-light)" /><div className="h3" style={{ marginTop: 8 }}>Nothing here</div><div className="body-sm" style={{ marginTop: 4 }}>Accept a lead in Evaluation and it lands here.</div></div>
       : <div className="grid grid-3 gap-3">
         {shown.map(r => { const pending = EVAL_ST.includes(r.status); const ink = PT_INK[r.projectType];
