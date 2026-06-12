@@ -1302,6 +1302,7 @@ function PrePOChecklist({ req, role }) {
   window.useStore();
   const items = window.NaturisData.PRE_PO_ITEMS;
   const p = req.prePO || {};
+  const [costDraft, setCostDraft] = useState("");
   const done = items.filter(it => p[it[0]]).length;
   const complete = done === items.length;
   const canTick = it => (role === "spoc" && it[2] === "Sales SPOC") || (role === "lab" && it[2] === "Lab") || role === "admin";
@@ -1314,14 +1315,22 @@ function PrePOChecklist({ req, role }) {
     </div>
     <div className="col gap-2">
       {items.map(it => { const [key, label, owner] = it; const on = !!p[key]; const mine = canTick(it);
-        return <div key={key} className="row between" style={{ padding: "9px 12px", borderRadius: 8, background: on ? "var(--approved-bg)" : "var(--page)" }}>
-          <div className="row gap-2" style={{ minWidth: 0 }}>
+        const isCost = key === "cost"; const doc = !!p[key + "Doc"];
+        return <div key={key} className="row between" style={{ padding: "9px 12px", borderRadius: 8, background: on ? "var(--approved-bg)" : "var(--page)", gap: 10, flexWrap: "wrap" }}>
+          <div className="row gap-2" style={{ minWidth: 0, alignItems: "center", flexWrap: "wrap" }}>
             <Icon name={on ? "check" : "clock"} size={14} color={on ? "var(--approved-fg)" : "var(--muted)"} />
             <span style={{ fontSize: 13, fontWeight: on ? 600 : 500 }}>{label}</span>
             <span className="pill pill-sm" style={{ background: "var(--surface)", color: owner === "Lab" ? "var(--lab-fg)" : "var(--brand-mid)" }}>{owner}</span>
+            {doc && <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--brand-mid)" }}><Icon name="note" size={10} color="var(--brand-mid)" /> doc attached</span>}
+            {isCost && on && p.costValue && <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--approved-fg)", fontWeight: 700 }}>{p.costValue}</span>}
           </div>
-          {mine ? <button className={"btn btn-sm " + (on ? "btn-ghost" : "")} onClick={() => window.NaturisStore.setPrePO(req.id, key, !on, me)}>{on ? "Un-tick" : "Confirm"}</button>
-            : <span className="body-sm" style={{ fontSize: 11 }}>{on ? "confirmed" : "with " + owner}</span>}
+          <div className="row gap-2" style={{ alignItems: "center", flexShrink: 0 }}>
+            {mine && !isCost && <button className="btn btn-sm btn-secondary" title={doc ? "Replace the attached document" : "Attach the " + label.toLowerCase()} onClick={() => window.NaturisStore.update(req.id, { prePO: Object.assign({}, p, { [key + "Doc"]: !doc }) })}><Icon name="upload" size={13} /> {doc ? "Replace" : "Upload"}</button>}
+            {mine && isCost && !on && <input className="input mono" style={{ width: 180, height: 32, fontSize: 12.5 }} placeholder="e.g. ₹48 / unit" value={costDraft} onChange={e => setCostDraft(e.target.value)} />}
+            {mine ? <button className={"btn btn-sm " + (on ? "btn-ghost" : "")} disabled={isCost && !on && !costDraft.trim()} title={isCost && !on ? "Type the final confirmed cost first" : undefined}
+              onClick={() => { if (isCost && !on) { window.NaturisStore.update(req.id, { prePO: Object.assign({}, p, { costValue: costDraft.trim() }) }); setCostDraft(""); } window.NaturisStore.setPrePO(req.id, key, !on, me); }}>{on ? "Un-tick" : "Confirm"}</button>
+              : <span className="body-sm" style={{ fontSize: 11 }}>{on ? "confirmed" : "with " + owner}</span>}
+          </div>
         </div>; })}
     </div>
     {complete && <div className="body-sm" style={{ fontSize: 12, marginTop: 10, color: "var(--review-fg)" }}><Icon name="alert" size={12} color="var(--review-fg)" /> Everything is customer-approved but the PO hasn't landed — follow up with the client.</div>}
