@@ -79,6 +79,7 @@ function MG01_Command({ nav }) {
     </div>
 
     {/* 3 — immediate attention: SLA breaches + customer-ready awaiting PO */}
+    <div className="col gap-4">
     <div className="card" style={{ borderTop: "3px solid var(--review-fg)" }}>
       <SectionTitle sub="SLA breaches and customer-ready projects whose PO hasn't landed">Immediate attention</SectionTitle>
       <div className="col gap-2">
@@ -90,18 +91,46 @@ function MG01_Command({ nav }) {
         {!breaches.length && !poAwaited.length && <div className="body-sm">Nothing needs immediate attention.</div>}
       </div>
     </div>
+    <div className="grid grid-2 gap-3">
+      <Stat label="Conversion (brief→approved)" value="68" suffix="%" sub="+5% vs last Q" color="var(--ink)" />
+      <Stat label="First-iteration success" value="61" suffix="%" sub="target 65%" color="var(--ink)" />
+    </div>
+    </div>
     </div>
 
-    <div className="grid gap-4" style={{ gridTemplateColumns: "0.8fr 1fr 1fr" }}>
-      <div className="col gap-3">
-        <Stat label="Conversion (brief→approved)" value="68" suffix="%" sub="+5% vs last Q" color="var(--ink)" />
-        <Stat label="First-iteration success" value="61" suffix="%" sub="target 65%" color="var(--ink)" />
+    {/* compact analytics strip: type mix · funnel · top clients in one short row */}
+    <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1.1fr 1fr", alignItems: "start" }}>
+      <div className="card">
+        <SectionTitle>Project-type distribution</SectionTitle>
+        <div className="col gap-2">
+          {typeCounts.map(({ t, n }) => { const max = Math.max(...typeCounts.map(x => x.n), 1);
+            return <div key={t} className="row gap-2" style={{ alignItems: "center" }}>
+              <span style={{ width: 44, flexShrink: 0 }}><ProjectTypePill type={t} /></span>
+              <div className="bar-track" style={{ flex: 1, height: 10 }}><div className="bar-fill" style={{ width: (n / max * 100) + "%" }} /></div>
+              <span className="mono" style={{ fontSize: 12, fontWeight: 700, width: 18, textAlign: "right" }}>{n}</span>
+            </div>; })}
+        </div>
       </div>
-      <div className="card"><SectionTitle>Project-type distribution</SectionTitle>
-        <div className="grid grid-2 gap-2">{typeCounts.map(({ t, n }) => <div key={t} style={{ textAlign: "center", padding: 10, borderRadius: 10, background: "var(--brand-wash)" }}>
-          <ProjectTypePill type={t} /><div className="serif-num" style={{ fontSize: 26, marginTop: 8 }}>{n}</div></div>)}</div></div>
-      <div className="card"><SectionTitle sub="Click a stage to drill in">Lifecycle funnel</SectionTitle>
-        <Funnel steps={funnelSteps} onStep={l => setStage(stage === l ? null : l)} active={stage} /></div>
+      <div className="card">
+        <SectionTitle sub="Click a stage to drill in">Lifecycle funnel</SectionTitle>
+        <div className="col" style={{ gap: 2 }}>
+          {funnelSteps.map(s => { const max = funnelSteps[0].value || 1; const on = stage === s.label;
+            return <div key={s.label} onClick={() => setStage(on ? null : s.label)} className="row gap-2" style={{ alignItems: "center", cursor: "pointer", padding: "3px 6px", borderRadius: 8, background: on ? "var(--brand-wash)" : "transparent" }}>
+              <span className="body-sm" style={{ width: 102, flexShrink: 0, fontSize: 11.5, fontWeight: on ? 700 : 500, color: on ? "var(--brand)" : undefined }}>{s.label}</span>
+              <div className="bar-track" style={{ flex: 1, height: 8 }}><div style={{ width: (s.value / max * 100) + "%", height: "100%", borderRadius: 6, background: "linear-gradient(90deg, var(--brand), var(--brand-accent))" }} /></div>
+              <span className="mono" style={{ fontSize: 11.5, fontWeight: 700, width: 20, textAlign: "right" }}>{s.value}</span>
+            </div>; })}
+        </div>
+      </div>
+      <div className="card">
+        <SectionTitle action={<span className="body-sm" style={{ fontSize: 10.5 }}>tap → intelligence</span>}>Top clients</SectionTitle>
+        <div className="col">
+          {DG.ACCOUNTS.map((a, ai) => <div key={a.id} className="row between clickable" onClick={() => nav("CI-01")} style={{ padding: "5px 4px", borderBottom: ai < DG.ACCOUNTS.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+            <span className="row gap-2" style={{ alignItems: "center", fontSize: 12.5, fontWeight: 600 }}>{a.vvip && <Icon name="star" size={11} color="#D97706" />}{a.name}</span>
+            <span className="row gap-3" style={{ alignItems: "center" }}><span className="mono" style={{ fontSize: 11.5 }}>{a.avgOrderValue}</span><span style={{ fontSize: 10, color: "#D97706", letterSpacing: 1 }}>{"★".repeat(a.rating)}</span></span>
+          </div>)}
+        </div>
+      </div>
     </div>
     {stage && <div className="card" style={{ padding: 0 }}>
       <div className="row between" style={{ padding: "14px 18px" }}><div className="h3">{stage} — {stageReqs.length} requirement{stageReqs.length !== 1 ? "s" : ""}</div>
@@ -111,10 +140,6 @@ function MG01_Command({ nav }) {
           <Td mono>{r.id}</Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td>{r.submittedBy}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><Aging days={r.age} /></Td></tr>)}</tbody></table></div>
     </div>}
 
-    <div className="card"><SectionTitle action={<span className="body-sm" style={{ fontSize: 11 }}>tap → intelligence</span>}>Top clients</SectionTitle>
-      <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Client</Th><Th>Segment</Th><Th>Avg order</Th><Th>Rating</Th></tr></thead>
-        <tbody>{DG.ACCOUNTS.map(a => <tr key={a.id} className="clickable" onClick={() => nav("CI-01")}>
-          <Td><span className="row gap-2">{a.vvip && <Icon name="star" size={12} color="#D97706" />}{a.name}</span></Td><Td>{a.segment}</Td><Td mono>{a.avgOrderValue}</Td><Td>{"★".repeat(a.rating)}</Td></tr>)}</tbody></table></div></div>
   </div>;
 }
 
@@ -282,15 +307,15 @@ function MG04_Tracker({ nav }) {
     </div>}
     {rows.length > 0 && <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ overflowX: "auto", maxHeight: "74vh", overflowY: "auto" }}>
-        <table className="tbl" style={{ minWidth: SHOWN.length > 16 ? 2700 : SHOWN.length * 120 }}>
+        <table className="tbl" style={{ minWidth: SHOWN.length > 16 ? 2250 : SHOWN.length * 100 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
             <tr>{SHOWN.map(([k, label, def]) => <th key={k} title={def + " — click to sort"} onClick={() => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(1); } }}
-              style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "7px 8px", whiteSpace: "nowrap", textAlign: "left", cursor: "pointer", userSelect: "none" }}>
+              style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 8.5, fontWeight: 700, letterSpacing: ".02em", textTransform: "uppercase", padding: "6px 6px", whiteSpace: "nowrap", textAlign: "left", cursor: "pointer", userSelect: "none" }}>
               {label}{sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>)}</tr>
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} className="clickable" title="Click to open the full requirement" onClick={() => setPopupId(r.id)}>
-              {SHOWN.map(([k]) => <td key={k} style={{ padding: "5px 8px", fontSize: 11, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
+              {SHOWN.map(([k]) => <td key={k} style={{ padding: "4px 6px", fontSize: 10.5, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 180 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
                 {k === "brand" ? <span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" />}<b>{r.brand}</b></span>
                   : k === "stage" ? <StatusPill status={r.stage} size="sm" />
                   : k === "lastCode" || k === "locked" ? <span className="mono" style={{ fontSize: 11.5 }}>{r[k]}</span>
