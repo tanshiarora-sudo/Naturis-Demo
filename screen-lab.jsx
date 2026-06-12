@@ -395,6 +395,7 @@ function WipDetail({ req, nav, role }) {
     </div>}
     {showDispatch && <DispatchPanel req={req} />}
     {postApproval && <PostApproval req={req} />}
+    {["Client approved", "In stability", "Archived"].includes(req.status) && window.PrePOChecklist && <window.PrePOChecklist req={req} role="lab" />}
     {window.ProgressTimeline && <div className="card"><SectionTitle>Timeline</SectionTitle><window.ProgressTimeline req={req} /></div>}
   </div>;
 }

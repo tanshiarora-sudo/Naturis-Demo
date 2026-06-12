@@ -41,6 +41,12 @@ const NAV = {
   ],
   admin: [
     { id: "GL-01", label: "Notifications", icon: "bell", badge: true },
+    { id: "MG-01", label: "Command centre", icon: "overview" },
+    { id: "SP-03", label: "Requirements", icon: "list" },
+    { id: "SP-02", label: "New requirement", icon: "plus" },
+    { id: "MG-04", label: "Master tracker", icon: "kanban" },
+    { id: "MG-03", label: "Intelligence reports", icon: "report" },
+    { id: "CI-01", label: "Client intelligence", icon: "intel" },
     { id: "AD-04", label: "Users", icon: "users" },
     { id: "AD-05", label: "Groups", icon: "groups" },
     { id: "AD-07", label: "Accounts", icon: "accounts" },

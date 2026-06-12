@@ -216,7 +216,7 @@ function IntakeSection({ n, title, desc, children, danger, action }) {
 }
 
 function freshIntakeForm() {
-  return { brand: "", company: "", clientName: "", existingAcct: "", family: "", category: "", base: "", desc: "", selectedFormulation: "",
+  return { brand: "", company: "", clientName: "", existingAcct: "", family: "", category: "", base: "", desc: "", selectedFormulation: "", manualCode: "", noBase: false, ttSheet: false,
     nonNeg: [{ ingredient: "", concentration: "" }], good: [{ ingredient: "", concentration: "" }],
     concerns: [], customConcernInput: "", claims: [], claimInput: "",
     sensory: { fragLevel: "", fragSpec: "", colour: "", colourSpec: "", texture: "", textureSpec: "" },
@@ -226,7 +226,7 @@ function freshIntakeForm() {
     labelDesc: "", shipping: "", shipName: "", shipPhone: "", title: "", recommend: "" };
 }
 
-function SP02_Intake({ nav }) {
+function SP02_Intake({ nav, role }) {
   window.useStore();
   const SectionCard = IntakeSection;
   const [clientKind, setClientKind] = useState("existing");
@@ -278,7 +278,7 @@ function SP02_Intake({ nav }) {
   function submitRequirement() {
     const id = window.NaturisStore.nextId();
     const seq = id.slice(-3);
-    const me = window.NaturisData.ROLES.find(r => r.id === "spoc").person;
+    const me = (window.NaturisData.ROLES.find(r => r.id === role) || window.NaturisData.ROLES.find(r => r.id === "spoc")).person;
     const status = (gateLocked || flagManager) ? "Pending review" : "Logged";
     const s = form.sensory;
     const req = {
@@ -399,8 +399,11 @@ function SP02_Intake({ nav }) {
 
         <SectionCard n="2" title="Basics" desc="Product family → category → base">
           <div className="grid grid-3 gap-3">
-            <Field label="Product family" required><SmartSelect value={form.family} onChange={v => set("family", v)} options={["Skin Care", "Hair Care", "Colour", "Sun Care", "Body Care"]} /></Field>
-            <Field label="Category" required><SmartSelect value={form.category} onChange={v => set("category", v)} options={["Serum", "Cream", "Cleanser", "Lip", "Toner", "Lotion", "Mask"]} /></Field>
+            <Field label="Product family" required><SmartSelect value={form.family} onChange={v => { setForm(f => ({ ...f, family: v, category: "" })); }} options={["Skin Care", "Hair Care", "Colour", "Sun Care", "Body Care"]} /></Field>
+            <Field label="Category" required hint={!form.family ? "Pick a product family first" : undefined}>
+              {form.family ? <SmartSelect value={form.category} onChange={v => set("category", v)} options={D.FAMILY_CATEGORIES[form.family] || ["Serum", "Cream", "Cleanser"]} />
+                : <div className="input" style={{ display: "flex", alignItems: "center", color: "var(--muted)", fontSize: 13 }}>Select a product family first…</div>}
+            </Field>
             <Field label="Base"><SmartSelect value={form.base} onChange={v => set("base", v)} options={["Aqueous gel", "O/W emulsion", "Anhydrous", "Surfactant blend", "Hybrid emulsion"]} /></Field>
           </div>
           <div style={{ marginTop: 12 }}>
@@ -566,6 +569,10 @@ function SP02_Intake({ nav }) {
         {/* PROJECT TYPE — decided last, suggested from the formulation */}
         <SectionCard title="Project type" desc="Suggested from your formulation (base + actives). Decide last — once the brief is complete. AI-assisted, a suggestion not a decision.">
           <ProjectTypePicker value={form.type} onChange={v => set("type", v)} aiSuggested={aiType} gateLocked={gateLocked} />
+          {form.type === "TT" && <div onClick={() => set("ttSheet", !form.ttSheet)} style={{ marginTop: 12, border: "2px dashed " + (form.ttSheet ? "var(--border)" : "var(--pt-tt-fg)"), borderRadius: 10, padding: 16, textAlign: "center", cursor: "pointer" }}>
+            <Icon name={form.ttSheet ? "check" : "upload"} size={18} color={form.ttSheet ? "var(--approved-fg)" : "var(--pt-tt-fg)"} />
+            <div className="body-sm" style={{ marginTop: 4, fontWeight: form.ttSheet ? 600 : 400 }}>{form.ttSheet ? "Tech-transfer sheet attached ✓ — click to remove" : "Upload the client's tech-transfer sheet (formula + process) — skips manual ingredient entry"}</div>
+          </div>}
         </SectionCard>
 
         <div className="card" style={{ background: "var(--brand-wash)" }}>
@@ -632,6 +639,20 @@ function SP02_Intake({ nav }) {
                 </div>
               </div>;
             }) : <div className="body-sm" style={{ fontSize: 12 }}>Pick a category and add actives to see matches.</div>}
+          <hr className="divider" style={{ margin: "12px 0" }} />
+          <Field label="Or enter a base code manually" hint="NTL / NCL code — fallback if the AI match isn't right">
+            <div className="row gap-2">
+              <input className="input mono" placeholder="e.g. NTL-SR-014" value={form.manualCode || ""} onChange={e => set("manualCode", e.target.value)} />
+              <button className="btn btn-sm btn-secondary" disabled={!(form.manualCode || "").trim()} onClick={() => set("selectedFormulation", form.manualCode.trim())}>{form.selectedFormulation && form.selectedFormulation === (form.manualCode || "").trim() ? "✓ Used" : "Use code"}</button>
+            </div>
+          </Field>
+          <button type="button" onClick={() => setForm(f => ({ ...f, selectedFormulation: "", manualCode: "", noBase: !f.noBase, type: !f.noBase ? "NPD" : f.type }))}
+            style={{ marginTop: 10, width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+              border: form.noBase ? "2px solid var(--pt-npd-fg)" : "1px dashed var(--border)", background: form.noBase ? "var(--pt-npd-bg)" : "transparent" }}>
+            <div className="row gap-2"><Icon name="sparkle" size={14} color="var(--pt-npd-fg)" /><span style={{ fontWeight: 600, fontSize: 12.5 }}>No existing base — new development</span></div>
+            <div className="body-sm" style={{ fontSize: 11, marginTop: 2 }}>{form.noBase ? "NPD path — base selection skipped, project type set to NPD." : "Creating something we've never made? Skip base selection — goes straight to the NPD path."}</div>
+          </button>
+
           </div>
         </div>
 
@@ -791,6 +812,8 @@ const FLAG_OPTIONS = [
   { code: "other", label: "Other", owner: "Sales Manager" },
 ];
 function RaiseFlagDrawer({ open, onClose, reqId, role }) {
+  const _req = reqId ? window.NaturisStore.get(reqId) : null;
+  const flagHold = !!(_req && _req.status === "Sent to client" && (_req.phaseDays || 0) < 3);
   const [type, setType] = useState("formulation");
   const [text, setText] = useState("");
   const me = window.NaturisData.ROLES.find(r => r.id === role)?.person || "User";
@@ -801,7 +824,11 @@ function RaiseFlagDrawer({ open, onClose, reqId, role }) {
     setText(""); onClose();
   }
   return <Drawer open={open} onClose={onClose} eyebrow={reqId} title="Raise a flag" width={460}
-    footer={<div className="row end gap-2"><button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-destructive" disabled={!text} onClick={raise}><Icon name="flag" size={15} /> Raise flag</button></div>}>
+    footer={<div className="row end gap-2">
+      {flagHold && <div style={{ padding: "10px 14px", borderRadius: 10, background: "var(--review-bg)", marginBottom: 12 }}>
+        <div className="row gap-2"><Icon name="clock" size={14} color="var(--review-fg)" /><span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--review-fg)" }}>Flagging opens 3 days after dispatch</span></div>
+        <div className="body-sm" style={{ fontSize: 12, color: "var(--review-fg)", marginTop: 2 }}>This sample reached the client {_req.phaseDays || 0} day{(_req.phaseDays || 0) !== 1 ? "s" : ""} ago. Give them 3 days before raising a flag — keeps the manager's desk noise-free.</div>
+      </div>}<button className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-destructive" disabled={flagHold || !text} onClick={raise}><Icon name="flag" size={15} /> Raise flag</button></div>}>
     <div className="col gap-3">
       <Field label="Flag type — routes to the responsible person">
         <div className="grid grid-2 gap-2">{FLAG_OPTIONS.map(o => { const on = type === o.code; return <button key={o.code} type="button" onClick={e => { e.preventDefault(); e.stopPropagation(); setType(o.code); }}
@@ -1061,6 +1088,7 @@ function SP04_Detail({ params, nav, role }) {
     </div>
 
     <SpocActionCard req={req} />
+        {["Client approved", "In stability"].includes(req.status) && <PrePOChecklist req={req} role={role === "admin" ? "admin" : "spoc"} />}
 
     <div className="grid gap-4" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>
       <div className="col gap-4">
@@ -1264,9 +1292,40 @@ function FullBriefButton({ req, label }) {
   const [open, setOpen] = useState(false);
   return <>
     <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.22)", width: "fit-content" }} onClick={() => setOpen(true)}>
-      <Icon name="note" size={15} /> {label || "View full requirement"}</button>
+      <Icon name="note" size={15} /> {label || "View initial requirement"}</button>
     <RequirementPopup open={open} onClose={() => setOpen(false)} reqId={req.id} />
   </>;
+}
+
+/* ---------- PRE-PO CHECKLIST (bridge to the ERP — per 11 Jun meeting) ---------- */
+function PrePOChecklist({ req, role }) {
+  window.useStore();
+  const items = window.NaturisData.PRE_PO_ITEMS;
+  const p = req.prePO || {};
+  const done = items.filter(it => p[it[0]]).length;
+  const complete = done === items.length;
+  const canTick = it => (role === "spoc" && it[2] === "Sales SPOC") || (role === "lab" && it[2] === "Lab") || role === "admin";
+  const me = role === "lab" ? (((window.NaturisData.LAB_DESKS || {})[req.projectType] || {}).tech || "Lab") : role === "admin" ? "Abhijit Jhala" : "Hardik Shah";
+  return <div className="card" style={{ borderTop: complete ? "3px solid #D97706" : "3px solid var(--brand-accent)" }}>
+    <div className="row between" style={{ marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+      <div><div className="h3">Pre-PO checklist</div><div className="body-sm" style={{ fontSize: 12 }}>The bridge to the ERP — all five confirmed = customer-ready, awaiting PO.</div></div>
+      {complete ? <span className="pill" style={{ background: "linear-gradient(135deg,#F59E0B,#D97706)", color: "#fff", fontWeight: 700 }}><Icon name="star" size={12} color="#fff" /> Customer-ready · PO awaited</span>
+        : <span className="pill" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)", fontWeight: 700 }}>{done} / {items.length} confirmed</span>}
+    </div>
+    <div className="col gap-2">
+      {items.map(it => { const [key, label, owner] = it; const on = !!p[key]; const mine = canTick(it);
+        return <div key={key} className="row between" style={{ padding: "9px 12px", borderRadius: 8, background: on ? "var(--approved-bg)" : "var(--page)" }}>
+          <div className="row gap-2" style={{ minWidth: 0 }}>
+            <Icon name={on ? "check" : "clock"} size={14} color={on ? "var(--approved-fg)" : "var(--muted)"} />
+            <span style={{ fontSize: 13, fontWeight: on ? 600 : 500 }}>{label}</span>
+            <span className="pill pill-sm" style={{ background: "var(--surface)", color: owner === "Lab" ? "var(--lab-fg)" : "var(--brand-mid)" }}>{owner}</span>
+          </div>
+          {mine ? <button className={"btn btn-sm " + (on ? "btn-ghost" : "")} onClick={() => window.NaturisStore.setPrePO(req.id, key, !on, me)}>{on ? "Un-tick" : "Confirm"}</button>
+            : <span className="body-sm" style={{ fontSize: 11 }}>{on ? "confirmed" : "with " + owner}</span>}
+        </div>; })}
+    </div>
+    {complete && <div className="body-sm" style={{ fontSize: 12, marginTop: 10, color: "var(--review-fg)" }}><Icon name="alert" size={12} color="var(--review-fg)" /> Everything is customer-approved but the PO hasn't landed — follow up with the client.</div>}
+  </div>;
 }
 
 /* ---------- REQUIREMENT POPUP (centered modal: brief + timeline/history) ---------- */
@@ -1300,7 +1359,7 @@ function RequirementPopup({ open, onClose, reqId, tab: initialTab }) {
           <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={18} /></button>
         </div>
         <div className="row gap-1" style={{ marginTop: 14 }}>
-          {[["brief", "Full brief"], ["timeline", "Timeline & history"]].map(([v, l]) =>
+          {[["brief", "Initial requirement"], ["timeline", "Timeline & history"]].map(([v, l]) =>
             <button key={v} onClick={() => setTab(v)} style={{ border: "none", background: "transparent", cursor: "pointer",
               padding: "8px 14px", fontSize: 13, fontWeight: 600, fontFamily: "var(--f-ui)",
               color: tab === v ? "var(--brand)" : "var(--muted)",
@@ -1334,7 +1393,7 @@ function RequirementPopup({ open, onClose, reqId, tab: initialTab }) {
   </>;
 }
 
-Object.assign(window, { RequirementPopup, FullBriefButton, ConfirmBtn, vvipSort, ReqTable, StageStepper, BarChart, Donut, KanbanBoard, ReportKPI, ActivityMini, RaiseFlagDrawer, RulebookDrawer, FLAG_OPTIONS, FullBrief, ProgressTimeline, lifecyclePhases });
+Object.assign(window, { RequirementPopup, FullBriefButton, ConfirmBtn, PrePOChecklist, vvipSort, ReqTable, StageStepper, BarChart, Donut, KanbanBoard, ReportKPI, ActivityMini, RaiseFlagDrawer, RulebookDrawer, FLAG_OPTIONS, FullBrief, ProgressTimeline, lifecyclePhases });
 Object.assign(window.SCREENS, {
   "SP-01": SP01_Dashboard, "SP-02": SP02_Intake, "SP-03": SP03_List,
   "SP-04": SP04_Detail, "SP-07": SP07_Pipeline, "SP-09": SP09_Reports,

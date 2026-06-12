@@ -243,7 +243,7 @@ const REQUIREMENTS = [
     evaluation: { rm: "yes", pm: "no", slot: "2026-06-08", availability: [{ name: "Activated Charcoal (cosmetic grade)", state: "available" }, { name: "Salicylic Acid", state: "available" }] } },
 
   /* ----- CLIENT APPROVED — stability prompt pending (Nua, TT) ----- */
-  { id: "REQ-2026-0394", title: "Kumkumadi Face Oil", brand: "Nua", categoryGroup: "Skin Care", category: "Serum", base: "Anhydrous",
+  { id: "REQ-2026-0394", prePO: { cost: true, stability: true, marketing: false, ingredient: true, packaging: false }, title: "Kumkumadi Face Oil", brand: "Nua", categoryGroup: "Skin Care", category: "Serum", base: "Anhydrous",
     status: "Client approved", projectType: "TT", currentNcl: "NCL-394-001",
     ncls: [{ code: "NCL-394-001", by: "Hardik Shah", at: "27 May", delta: "Client ayurvedic oil formula transfer", status: "current" }],
     aiTrack: 2, aiCode: "NTL-LP-009", aiScore: 64, aiRationale: "Anhydrous oil system — tech transfer, verify saffron-oil stability.", aiSimilarWork: [],
@@ -628,6 +628,8 @@ window.NaturisStore = {
   resendForApproval(id, clarification, by) { const r = this.get(id); if (r) { r.status = "Pending review"; r.spocClarification = clarification; this.log(id, { kind: "approval", icon: "history", stage: "Resent for approval", actor: by, role: "SPOC", at: "just now", detail: "Clarified & resent: " + clarification, current: true }); this._notify(id, "queue", "info", id + " resent for your review", clarification, "NR-02"); } _bump(); },
   closeLost(id, reason, by) { const r = this.get(id); if (r) { r.status = "Archived"; r.lost = true; r.lostReason = reason; this.log(id, { kind: "status", icon: "archive", stage: "Closed — lost", actor: by, role: "SPOC", at: "just now", detail: "Closed as lost: " + reason, current: true }); this._notify(id, "flag", "med", id + " closed as lost", reason, "NR-04"); } _bump(); },
   markAllRead() { NOTIFICATIONS.forEach(n => { n.read = true; }); _bump(); },
+  setPrePO(id, key, val, by) { const r = this.get(id); if (r) { r.prePO = r.prePO || {}; r.prePO[key] = val; const item = (window.NaturisData.PRE_PO_ITEMS.find(x => x[0] === key) || [])[1] || key; this.log(id, { kind: val ? "approval" : "status", icon: val ? "check" : "work", stage: "Pre-PO checklist", actor: by, role: "System", at: "just now", detail: item + (val ? " ✓ confirmed" : " un-ticked") }); const all = window.NaturisData.PRE_PO_ITEMS.every(x => r.prePO[x[0]]); if (all && !r.prePOComplete) { r.prePOComplete = true; this.log(id, { kind: "approval", icon: "star", stage: "Customer-ready", actor: "System", role: "System", at: "just now", detail: "Pre-PO checklist complete — customer-ready, awaiting PO.", current: true }); this._notify(id, "dispatch", "info", id + " is customer-ready — PO awaited", "All pre-PO checks done. Follow up for the PO.", "NR-04"); } if (!all) r.prePOComplete = false; } _bump(); },
+  setVvipOverride(id, val, by) { const r = this.get(id); if (r) { this.addAudit({ actor: by, role: "Management", action: "VVIP override", target: id, field: "vvip", before: String(r.vvip), after: String(val), note: "Management override from command centre" }); r.vvip = val; this.log(id, { kind: "status", icon: "star", stage: "VVIP " + (val ? "set" : "removed"), actor: by, role: "Management", at: "just now", detail: "Management " + (val ? "marked this VVIP" : "removed VVIP") + " (override)." }); } _bump(); },
   saveProfile(roleKey, patch, by) { const p = window.NaturisData.PROFILE_OF[roleKey]; if (p) { Object.assign(p, patch); this.addAudit({ actor: by || p.name, role: "Self", action: "Profile updated", target: p.empId, field: Object.keys(patch).join(", "), before: "—", after: "updated", note: "Edited from profile screen" }); } _bump(); },
   addFlag(id, flag) { const r = this.get(id); if (r) { flag.id = flag.id || ("F-" + (++_evSeq)); flag.resolved = false; r.flags.push(flag); r.manualFlag = true; this.log(id, { kind: "flag", icon: "flag", stage: "Flag", actor: flag.raisedBy, role: flag.raisedByRole || "SPOC", at: "just now", severity: flag.severity, detail: (flag.typeLabel || flag.type) + ": " + flag.text }); NOTIFICATIONS.unshift({ id: "N-" + (++_evSeq), type: "flag", severity: flag.severity, title: (flag.typeLabel || flag.type) + " flag on " + id, body: flag.text, at: "just now", read: false, req: id, rule: "NR-05" }); } _bump(); },
   setSeverity(id, flagId, severity) { const r = this.get(id); const f = r && r.flags.find(x => x.id === flagId); if (f) f.severity = severity; _bump(); },
@@ -813,6 +815,30 @@ window.NaturisStore.addAudit = function (rec) {
 
 /* ---------- Regions + rich person profiles ---------- */
 window.NaturisData.REGIONS = ["North", "South", "East", "West", "Central"];
+window.NaturisData.FAMILY_CATEGORIES = {
+  "Skin Care": ["Serum", "Cream", "Moisturiser", "Cleanser", "Toner", "Face Oil", "Mask", "Lotion"],
+  "Hair Care": ["Shampoo", "Conditioner", "Hair Oil", "Hair Serum", "Hair Mask", "Scalp Tonic"],
+  "Colour": ["Lipstick", "Lip Tint", "Foundation", "Kajal", "Blush"],
+  "Sun Care": ["Sunscreen Lotion", "SPF Fluid", "SPF Stick", "After-Sun Gel"],
+  "Body Care": ["Body Lotion", "Body Wash", "Body Butter", "Body Oil", "Deodorant"],
+};
+/* category market intelligence — manually maintained by management (per 11 Jun meeting) */
+window.NaturisData.CATEGORY_MARKET = [
+  { category: "Shampoo", avgMrp: "₹449", avgSp: "₹312", avgQty: "250ml", perMl: "₹1.25" },
+  { category: "Serum", avgMrp: "₹699", avgSp: "₹489", avgQty: "30ml", perMl: "₹16.30" },
+  { category: "Moisturiser", avgMrp: "₹499", avgSp: "₹374", avgQty: "50ml", perMl: "₹7.48" },
+  { category: "Cleanser", avgMrp: "₹349", avgSp: "₹262", avgQty: "100ml", perMl: "₹2.62" },
+  { category: "Face Oil", avgMrp: "₹899", avgSp: "₹674", avgQty: "30ml", perMl: "₹22.47" },
+  { category: "Sunscreen Lotion", avgMrp: "₹549", avgSp: "₹412", avgQty: "50ml", perMl: "₹8.24" },
+];
+/* Pre-PO checklist definition — owner per item (per Rahul's handwritten sheet, 11 Jun meeting) */
+window.NaturisData.PRE_PO_ITEMS = [
+  ["cost", "Cost reconfirmed", "Sales SPOC"],
+  ["stability", "Stability confirmed", "Lab"],
+  ["marketing", "Marketing sheet ready", "Lab"],
+  ["ingredient", "Ingredient list — primary & final", "Lab"],
+  ["packaging", "Packaging · fill · leak · compatibility", "Lab"],
+];
 window.NaturisData.PROFILE_OF = {
   spoc:    { empId: "NAT-SP-018", name: "Hardik Shah", email: "hardik@naturis.co", phone: "+91 98200 11018", office: "Mumbai HQ", department: "Sales", manager: "Kunal Shah", region: "West", title: "Sales SPOC" },
   manager: { empId: "NAT-SM-004", name: "Kunal Shah", email: "kunal@naturis.co", phone: "+91 98200 11004", office: "Mumbai HQ", department: "Sales", manager: "Rahul Tandon", region: "All India", title: "Sales Manager" },

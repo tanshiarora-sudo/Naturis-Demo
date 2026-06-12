@@ -576,7 +576,7 @@ function CI01_Intelligence({ role }) {
   window.useStore();
   const [accId, setAccId] = useState(DM.ACCOUNTS[0].id);
   const acc = DM.ACCOUNTS.find(a => a.id === accId);
-  const isMgmt = role === "mgmt";
+  const isMgmt = role === "mgmt" || role === "admin";
   const health = acc.rating * 18 + 8;
   const ci = (DM.CI_DATA[accId] || {});
   const [editing, setEditing] = useState(false);
@@ -656,7 +656,23 @@ function CI01_Intelligence({ role }) {
       </div>;
     })()}
     <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
-      <div className="card"><div className="label" style={{ marginBottom: 12 }}>Stakeholder mapping</div>
+      <div className="card">
+        <div className="row between" style={{ marginBottom: 12 }}><div className="label">Stakeholder mapping · manually maintained</div>
+          {isMgmt && <button className="btn btn-ghost btn-sm" onClick={() => { const list = (ci.stakeholders || acc.decisionMakers.map(x => ({ name: x.name, title: x.title, dept: "—", power: "Influencer", influence: x.influence, relationship: "Good", engagement: "Monthly", pref: "Email" }))).concat([{ name: "New stakeholder", title: "Title", dept: "Dept", power: "Influencer", influence: 50, relationship: "New", engagement: "—", pref: "Email" }]); window.NaturisStore.setCI(accId, { stakeholders: list }, "Rahul Tandon"); }}><Icon name="plus" size={13} /> Add</button>}
+        </div>
+        {(ci.stakeholders || []).length > 0 ? <div className="col gap-2">
+          {ci.stakeholders.map((sm2, si) => <div key={si} style={{ padding: 10, borderRadius: 10, background: "var(--page)" }}>
+            {isMgmt ? <div className="grid grid-4 gap-2">
+              {[["name", "Name"], ["title", "Designation"], ["dept", "Department"], ["power", "Decision power"], ["relationship", "Relationship"], ["engagement", "Engagement freq."], ["pref", "Comm preference"], ["influence", "Influence %"]].map(([k, lbl]) =>
+                <div key={k}><div className="label" style={{ fontSize: 8 }}>{lbl}</div>
+                  <input className="input" style={{ height: 30, fontSize: 12 }} value={sm2[k] != null ? sm2[k] : ""} onChange={e => { const list = ci.stakeholders.map((x, xi) => xi === si ? { ...x, [k]: e.target.value } : x); window.NaturisStore.setCI(accId, { stakeholders: list }, "Rahul Tandon"); }} /></div>)}
+            </div> : <div>
+              <div className="row between"><span style={{ fontWeight: 600, fontSize: 13 }}>{sm2.name} · {sm2.title}</span><span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)" }}>{sm2.power}</span></div>
+              <div className="body-sm" style={{ fontSize: 11.5 }}>{sm2.dept} · {sm2.relationship} · {sm2.engagement} · prefers {sm2.pref}</div>
+            </div>}
+          </div>)}
+        </div> : null}
+        <div className="label" style={{ margin: "12px 0 8px", fontSize: 8.5 }}>From order history</div>
         {acc.decisionMakers.map(dm => <div key={dm.name} style={{ marginBottom: 12 }}>
           <div className="row between" style={{ marginBottom: 4 }}><div className="row gap-2"><Avatar name={dm.name} size={26} /><div><div style={{ fontSize: 13, fontWeight: 600 }}>{dm.name}</div><div className="body-sm" style={{ fontSize: 11 }}>{dm.title}</div></div></div>
             <span className="pill pill-sm" style={{ background: dm.sentiment === "positive" ? "var(--approved-bg)" : dm.sentiment === "negative" ? "var(--coral-wash)" : "var(--review-bg)", color: dm.sentiment === "positive" ? "var(--approved-fg)" : dm.sentiment === "negative" ? "var(--coral-dark)" : "var(--review-fg)" }}>{dm.sentiment}</span></div>
@@ -676,39 +692,76 @@ function CI01_Intelligence({ role }) {
 /* ====================================================================
    SM-02 · AWAITING INTERVENTION  (approvals section + flags section)
    ==================================================================== */
+function ReviewOverviewPopup({ item, onClose, nav }) {
+  if (!item) return null;
+  const { kind, r, f } = item;
+  const Fact = ({ l, v }) => <div style={{ padding: "8px 10px", borderRadius: 8, background: "var(--page)" }}>
+    <div className="label" style={{ fontSize: 8.5 }}>{l}</div><div style={{ fontSize: 13, fontWeight: 600, marginTop: 1 }}>{v || "—"}</div></div>;
+  return <>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", zIndex: 95 }} />
+    <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(560px, 92vw)", background: "var(--surface)", borderRadius: 16, boxShadow: "0 24px 64px rgba(15,23,42,.3)", zIndex: 96, padding: 22 }}>
+      <div className="row between" style={{ marginBottom: 4 }}>
+        <span className="pill pill-sm" style={kind === "flag" ? { background: "var(--coral-wash)", color: "var(--coral-dark)", fontWeight: 700 } : { background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>{kind === "flag" ? "FLAG" : "APPROVAL NEEDED"}</span>
+        <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={16} /></button>
+      </div>
+      <div className="h2" style={{ fontSize: 19 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
+      <div className="body-sm" style={{ fontSize: 12 }}><span className="mono">{r.id}</span> · {r.submittedBy}</div>
+      <div className="grid grid-3 gap-2" style={{ margin: "14px 0" }}>
+        <Fact l="Status" v={r.status} /><Fact l="Type" v={r.projectType} /><Fact l="Age in system" v={r.age + "d"} />
+        <Fact l="Submitted" v={r.submittedAt} /><Fact l="Committed date" v={r.committedDate} /><Fact l="MOQ" v={r.moq} />
+      </div>
+      <div style={{ padding: "10px 12px", borderRadius: 10, background: kind === "flag" ? "var(--coral-wash)" : "var(--review-bg)", marginBottom: 14 }}>
+        <div className="label" style={{ fontSize: 8.5, marginBottom: 3, color: kind === "flag" ? "var(--coral-dark)" : "var(--review-fg)" }}>{kind === "flag" ? "Why it's flagged" : "What's needed"}</div>
+        <div className="body-sm" style={{ fontSize: 12.5, color: kind === "flag" ? "var(--coral-dark)" : "var(--review-fg)" }}>
+          {kind === "flag" ? (f.typeLabel || f.type) + " — " + f.text + " (raised by " + f.raisedBy + ")" : "Awaiting your review decision — approve for the lab, discuss, or return with a note."}</div>
+      </div>
+      <div className="row gap-2">
+        <button className="btn" style={{ flex: 1 }} onClick={() => { onClose(); nav("SM-03", { reqId: r.id }); }}><Icon name="arrowRight" size={14} /> Open full detail</button>
+        {window.FullBriefButton && <window.FullBriefButton req={r} label="Initial requirement" />}
+      </div>
+    </div>
+  </>;
+}
+
 function SM02_Intervention({ nav }) {
   window.useStore();
-  const [tab, setTab] = useState("approvals");
   const reqs = DM.REQUIREMENTS;
-  const pending = reqs.filter(r => r.status === "Pending review" || ["TT", "NPD"].includes(r.projectType) && ["Logged", "R&D assessing"].includes(r.status));
-  const flagCount = reqs.reduce((n, r) => n + r.flags.filter(f => !f.resolved).length, 0);
-  const TABS = [
-    { key: "approvals", label: "Requirements awaiting approval", desc: "Review, override & decide", icon: "queue", count: pending.length, grad: "var(--grad-brand)", wash: "var(--brand-wash)", fg: "var(--brand)" },
-    { key: "flags", label: "Flags raised", desc: "Risks needing your call", icon: "flag", count: flagCount, grad: "var(--grad-coral)", wash: "var(--coral-wash)", fg: "var(--coral-dark)" },
-  ];
-  return <div className="col gap-5">
-    <PageHead title="Review desk" sub="Everything that needs your action — pick a queue." />
-    <div className="grid grid-2 gap-4">
-      {TABS.map(t => { const on = tab === t.key;
-        return <button key={t.key} onClick={() => setTab(t.key)} style={{ textAlign: "left", border: "none", cursor: "pointer",
-          borderRadius: 14, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16, transition: "all .15s",
-          background: on ? t.grad : t.wash, color: on ? "#fff" : "var(--ink)",
-          boxShadow: on ? "0 8px 22px rgba(18,57,95,.28)" : "none", transform: on ? "translateY(-2px)" : "none" }}>
-          <span style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            background: on ? "rgba(255,255,255,.18)" : "var(--surface)" }}>
-            <Icon name={t.icon} size={22} color={on ? "#fff" : t.fg} /></span>
-          <span style={{ flex: 1 }}>
-            <span style={{ display: "block", fontSize: 15, fontWeight: 700, fontFamily: "var(--f-ui)" }}>{t.label}</span>
-            <span style={{ display: "block", fontSize: 12, opacity: .8, marginTop: 2 }}>{t.desc}</span>
-          </span>
-          <span className="serif-num" style={{ fontSize: 34, color: on ? "#fff" : t.fg }}>{t.count}</span>
-        </button>; })}
+  const approvals = window.vvipSort(reqs.filter(r => r.status === "Pending review"));
+  const flags = reqs.flatMap(r => r.flags.filter(f => !f.resolved).map(f => ({ f, r })));
+  const [ov, setOv] = useState(null);
+  const todo = [
+    ...flags.map(x => ({ kind: "flag", r: x.r, f: x.f, prio: (x.r.vvip ? 0 : 2) })),
+    ...approvals.map(r => ({ kind: "approval", r, prio: (r.vvip ? 1 : 3) })),
+  ].sort((a, b) => a.prio - b.prio || b.r.age - a.r.age);
+  return <div className="col gap-4">
+    <ReviewOverviewPopup item={ov} onClose={() => setOv(null)} nav={nav} />
+    <PageHead title="Review desk" sub="Everything that needs your action — one glance, no tabs. Red = flags, amber = approvals." />
+    <div className="row gap-3 wrap">
+      <span className="pill" style={{ background: "var(--coral-wash)", color: "var(--coral-dark)", fontWeight: 700 }}><Icon name="flag" size={12} color="var(--coral-dark)" /> {flags.length} flag{flags.length !== 1 ? "s" : ""}</span>
+      <span className="pill" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}><Icon name="queue" size={12} color="var(--review-fg)" /> {approvals.length} awaiting approval</span>
+      <span className="body-sm" style={{ alignSelf: "center", fontSize: 12 }}>{todo.length} to-dos · click a row for the quick overview</span>
     </div>
-    <div style={{ borderRadius: 16, padding: 20, background: tab === "approvals"
-        ? "linear-gradient(160deg, var(--brand-wash) 0%, var(--surface) 30%)"
-        : "linear-gradient(160deg, var(--coral-wash) 0%, var(--surface) 30%)",
-      border: "1px solid var(--border)" }}>
-      {tab === "approvals" ? <SM02_Queue nav={nav} embedded /> : <SM05_Flags nav={nav} embedded />}
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      {todo.map((it, i) => { const flag = it.kind === "flag";
+        return <div key={(it.r.id || "") + (it.f ? it.f.id : "ap") + i} onClick={() => setOv(it)}
+          className="row between"
+          style={{ padding: "11px 16px", gap: 12, cursor: "pointer", borderTop: i > 0 ? "1px solid var(--border)" : "none",
+            borderLeft: `4px solid ${flag ? "var(--coral)" : "var(--review-fg)"}`,
+            background: flag ? "var(--coral-wash)" : "var(--review-bg)" }}>
+          <div className="row gap-2" style={{ minWidth: 0, flex: 1 }}>
+            <Icon name={flag ? "flag" : "queue"} size={14} color={flag ? "var(--coral-dark)" : "var(--review-fg)"} />
+            {it.r.vvip && <VVIPBadge size="sm" />}
+            <span className="mono" style={{ fontSize: 11, color: "var(--brand-mid)", fontWeight: 600 }}>{it.r.id.slice(-4)}</span>
+            <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span style={{ color: "var(--brand-mid)" }}>{it.r.brand}</span> · {it.r.title}</span>
+            <span className="body-sm" style={{ fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{flag ? (it.f.typeLabel || it.f.type) : "review & decide"}</span>
+          </div>
+          <div className="row gap-2" style={{ flexShrink: 0 }}>
+            <ProjectTypePill type={it.r.projectType} />
+            <SLAIndicator req={it.r} />
+            <button className="btn btn-sm btn-secondary" onClick={e => { e.stopPropagation(); nav("SM-03", { reqId: it.r.id }); }}>Open</button>
+          </div>
+        </div>; })}
+      {!todo.length && <div style={{ textAlign: "center", padding: 40 }}><Icon name="check" size={24} color="var(--approved-fg)" /><div className="h3" style={{ marginTop: 8 }}>Desk clear</div><div className="body-sm" style={{ marginTop: 4 }}>No approvals or flags waiting. 🎉</div></div>}
     </div>
   </div>;
 }

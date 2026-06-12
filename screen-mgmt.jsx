@@ -9,39 +9,91 @@ const DG = window.NaturisData;
 /* ====================================================================
    MG-01 · COMMAND CENTRE
    ==================================================================== */
-function Funnel({ steps }) {
+function Funnel({ steps, onStep, active }) {
   const max = steps[0].value || 1;
-  return <div className="col gap-2">{steps.map((s, i) => <div key={i}>
+  return <div className="col gap-2">{steps.map((s, i) => <div key={i} onClick={() => onStep && onStep(s.label)} style={{ cursor: onStep ? "pointer" : "default", padding: 2, borderRadius: 8, background: active === s.label ? "var(--brand-wash)" : "transparent" }}>
     <div className="row between" style={{ marginBottom: 3 }}><span className="body-sm" style={{ fontSize: 12 }}>{s.label}</span><span className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{s.value}</span></div>
     <div style={{ height: 26, borderRadius: 6, background: "var(--brand-wash)", overflow: "hidden" }}>
       <div style={{ width: `${(s.value / max) * 100}%`, height: "100%", background: `linear-gradient(90deg, var(--brand), var(--brand-accent))`, borderRadius: 6, transition: "width .5s" }} /></div>
   </div>)}</div>;
 }
 
+const FUNNEL_BUCKETS = {
+  "Logged": null, // all
+  "Approved": ["Approved", "Acknowledged", "In evaluation", "Query raised", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch", "Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"],
+  "In lab": ["Acknowledged", "In evaluation", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch"],
+  "Dispatched": ["Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"],
+  "Client-approved": ["Client approved", "In stability", "Archived"],
+};
 function MG01_Command({ nav }) {
+  window.useStore();
   const reqs = DG.REQUIREMENTS;
   const vvips = reqs.filter(r => r.vvip && r.status !== "Archived");
   const breaches = reqs.filter(r => DG.slaStatus(r).level === "red");
+  const openFlags = reqs.flatMap(r => (r.flags || []).filter(f => !f.resolved).map(f => ({ f, r })));
+  const poAwaited = reqs.filter(r => r.prePOComplete);
   const typeCounts = ["EPD", "REN", "TT", "NPD"].map(t => ({ t, n: reqs.filter(r => r.projectType === t).length }));
+  const [popupId, setPopupId] = useState(null);
+  const [stage, setStage] = useState(null);
+  const [vvipPick, setVvipPick] = useState("");
+  const funnelSteps = Object.keys(FUNNEL_BUCKETS).map(label => ({ label, value: FUNNEL_BUCKETS[label] ? reqs.filter(r => FUNNEL_BUCKETS[label].includes(r.status)).length : reqs.length }));
+  const stageReqs = stage ? (FUNNEL_BUCKETS[stage] ? reqs.filter(r => FUNNEL_BUCKETS[stage].includes(r.status)) : reqs) : [];
+  const stakeholderOf = r => { const acc = DG.ACCOUNTS.find(a => a.name === r.brand); const ci = (DG.CI_DATA || {})[acc && acc.id] || {}; const smx = (ci.stakeholders && ci.stakeholders[0]) || (acc && acc.decisionMakers[0]); return smx ? smx.name : "—"; };
+  const jobValue = r => { const qty = parseInt(String(r.moq).replace(/[^0-9]/g, "")) || 0; const fg = (r.briefDetail || {}).fg || 0; return qty && fg ? "₹" + ((qty * fg) / 100000).toFixed(1) + "L" : "—"; };
   return <div className="col gap-5">
+    {window.RequirementPopup && <window.RequirementPopup open={!!popupId} onClose={() => setPopupId(null)} reqId={popupId} />}
     <div><div className="h1">Command centre</div><div className="body" style={{ color: "var(--muted)", marginTop: 4 }}>Read-only · live across all roles · {vvips.length} VVIP projects in flight.</div></div>
 
-    {/* VVIP section always top */}
+    {/* 1 — VVIP projects, always top */}
     <div className="card" style={{ borderTop: "3px solid #D97706" }}>
-      <div className="row gap-2" style={{ marginBottom: 14 }}><Icon name="star" size={16} color="#D97706" /><span className="h3">VVIP projects</span></div>
+      <div className="row between" style={{ marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+        <div className="row gap-2"><Icon name="star" size={16} color="#D97706" /><span className="h3">VVIP projects</span></div>
+        {/* management override: mark any project VVIP even if the system didn't */}
+        <div className="row gap-2">
+          <select className="select" style={{ width: 250, height: 34, fontSize: 12 }} value={vvipPick} onChange={e => setVvipPick(e.target.value)}>
+            <option value="">Override: mark a project VVIP…</option>
+            {reqs.filter(r => !r.vvip && r.status !== "Archived").map(r => <option key={r.id} value={r.id}>{r.brand} · {r.title}</option>)}
+          </select>
+          <button className="btn btn-sm" disabled={!vvipPick} onClick={() => { window.NaturisStore.setVvipOverride(vvipPick, true, "Rahul Tandon"); setVvipPick(""); }}><Icon name="star" size={13} /> Mark VVIP</button>
+        </div>
+      </div>
       <div className="grid grid-3 gap-3">
-        {vvips.map(r => <div key={r.id} onClick={() => nav("CI-01")} style={{ padding: 14, borderRadius: 10, background: "var(--brand-wash)", cursor: "pointer" }}>
+        {vvips.map(r => <div key={r.id} onClick={() => setPopupId(r.id)} style={{ padding: 14, borderRadius: 10, background: "var(--brand-wash)", cursor: "pointer" }}>
           <div className="row between" style={{ marginBottom: 6 }}><VVIPBadge size="sm" /><SLAIndicator req={r} /></div>
-          <div style={{ fontWeight: 600, fontSize: 13.5 }}>{r.title}</div>
-          <div className="body-sm" style={{ fontSize: 12 }}>{r.brand}</div>
-          <div className="row gap-2" style={{ marginTop: 8 }}><ProjectTypePill type={r.projectType} /><StatusPill status={r.status} size="sm" /></div>
+          <div style={{ fontWeight: 700, fontSize: 13.5 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
+          <div className="row gap-2" style={{ marginTop: 8, flexWrap: "wrap" }}><ProjectTypePill type={r.projectType} /><StatusPill status={r.status} size="sm" /></div>
+          <div className="grid grid-2 gap-1" style={{ marginTop: 10 }}>
+            {[["SPOC", r.submittedBy], ["Days in system", r.age + "d"], ["Qty", r.moq], ["Expected price", (r.briefDetail || {}).fg ? "₹" + r.briefDetail.fg + "/unit" : "—"], ["Job value", jobValue(r)], ["Stakeholder", stakeholderOf(r)]].map(([l, v]) =>
+              <div key={l} style={{ fontSize: 11 }}><span className="label" style={{ fontSize: 7.5 }}>{l}</span><div style={{ fontWeight: 600, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</div></div>)}
+          </div>
         </div>)}
       </div>
     </div>
 
-    <div className="grid grid-3 gap-3">
+    {/* 2 — red flags */}
+    <div className="card" style={{ borderTop: "3px solid var(--coral)" }}>
+      <SectionTitle sub="Open flags across the pipeline">Red flags</SectionTitle>
+      {openFlags.length ? <div className="col gap-2">{openFlags.map(({ f, r }, k) => <div key={k} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--coral-wash)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
+        <div className="row gap-2" style={{ minWidth: 0 }}><Icon name="flag" size={13} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 12.5, color: "var(--coral-dark)" }}>{f.typeLabel || f.type}</span><span style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></div>
+        <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--coral-dark)" }}>owner · {f.owner}</span>
+      </div>)}</div> : <div className="body-sm">No open flags. 🎉</div>}
+    </div>
+
+    {/* 3 — immediate attention: SLA breaches + customer-ready awaiting PO */}
+    <div className="card" style={{ borderTop: "3px solid var(--review-fg)" }}>
+      <SectionTitle sub="SLA breaches and customer-ready projects whose PO hasn't landed">Immediate attention</SectionTitle>
+      <div className="col gap-2">
+        {poAwaited.map(r => <div key={"po" + r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "#FEF3C7", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
+          <span className="row gap-2" style={{ minWidth: 0 }}><Icon name="star" size={13} color="#92400E" /><span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span>
+          <span className="pill pill-sm" style={{ background: "var(--surface)", color: "#92400E", fontWeight: 700 }}>Customer-ready · PO awaited</span></div>)}
+        {breaches.map(r => <div key={r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--page)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span><SLAIndicator req={r} /></div>)}
+        {!breaches.length && !poAwaited.length && <div className="body-sm">Nothing needs immediate attention.</div>}
+      </div>
+    </div>
+
+    <div className="grid grid-2 gap-3">
       <Stat label="Conversion (brief→approved)" value="68" suffix="%" sub="+5% vs last Q" color="var(--ink)" />
-      <Stat label="Avg delivery time" value="18" suffix="days" sub="-2d vs last Q" color="var(--ink)" />
       <Stat label="First-iteration success" value="61" suffix="%" sub="target 65%" color="var(--ink)" />
     </div>
 
@@ -49,19 +101,21 @@ function MG01_Command({ nav }) {
       <div className="card"><SectionTitle>Project-type distribution</SectionTitle>
         <div className="grid grid-4 gap-2">{typeCounts.map(({ t, n }) => <div key={t} style={{ textAlign: "center", padding: 12, borderRadius: 10, background: "var(--brand-wash)" }}>
           <ProjectTypePill type={t} /><div className="serif-num" style={{ fontSize: 26, marginTop: 8 }}>{n}</div></div>)}</div></div>
-      <div className="card"><SectionTitle>Lifecycle funnel</SectionTitle>
-        <Funnel steps={[{ label: "Logged", value: 38 }, { label: "Approved", value: 31 }, { label: "In lab", value: 22 }, { label: "Dispatched", value: 16 }, { label: "Client-approved", value: 11 }]} /></div>
+      <div className="card"><SectionTitle sub="Click a stage to drill into its requirements">Lifecycle funnel</SectionTitle>
+        <Funnel steps={funnelSteps} onStep={l => setStage(stage === l ? null : l)} active={stage} /></div>
     </div>
+    {stage && <div className="card" style={{ padding: 0 }}>
+      <div className="row between" style={{ padding: "14px 18px" }}><div className="h3">{stage} — {stageReqs.length} requirement{stageReqs.length !== 1 ? "s" : ""}</div>
+        <button className="btn btn-ghost btn-sm" onClick={() => setStage(null)}><Icon name="x" size={14} /> Close</button></div>
+      <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>SPOC</Th><Th>Status</Th><Th>Age</Th></tr></thead>
+        <tbody>{window.vvipSort(stageReqs).map(r => <tr key={r.id} className="clickable" onClick={() => setPopupId(r.id)}>
+          <Td mono>{r.id}</Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td>{r.submittedBy}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><Aging days={r.age} /></Td></tr>)}</tbody></table></div>
+    </div>}
 
-    <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1.4fr" }}>
-      <div className="card" style={{ borderTop: "3px solid var(--coral)" }}><SectionTitle>Aging / SLA breaches</SectionTitle>
-        {breaches.length ? breaches.map(r => <div key={r.id} className="row between" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{r.title}</span><SLAIndicator req={r} /></div>) : <div className="body-sm">No active breaches.</div>}</div>
-      <div className="card"><SectionTitle action={<span className="body-sm" style={{ fontSize: 11 }}>tap → intelligence</span>}>Top clients</SectionTitle>
-        <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Client</Th><Th>Segment</Th><Th>Avg order</Th><Th>Rating</Th></tr></thead>
-          <tbody>{DG.ACCOUNTS.map(a => <tr key={a.id} className="clickable" onClick={() => nav("CI-01")}>
-            <Td><span className="row gap-2">{a.vvip && <Icon name="star" size={12} color="#D97706" />}{a.name}</span></Td><Td>{a.segment}</Td><Td mono>{a.avgOrderValue}</Td><Td>{"★".repeat(a.rating)}</Td></tr>)}</tbody></table></div></div>
-    </div>
+    <div className="card"><SectionTitle action={<span className="body-sm" style={{ fontSize: 11 }}>tap → intelligence</span>}>Top clients</SectionTitle>
+      <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Client</Th><Th>Segment</Th><Th>Avg order</Th><Th>Rating</Th></tr></thead>
+        <tbody>{DG.ACCOUNTS.map(a => <tr key={a.id} className="clickable" onClick={() => nav("CI-01")}>
+          <Td><span className="row gap-2">{a.vvip && <Icon name="star" size={12} color="#D97706" />}{a.name}</span></Td><Td>{a.segment}</Td><Td mono>{a.avgOrderValue}</Td><Td>{"★".repeat(a.rating)}</Td></tr>)}</tbody></table></div></div>
   </div>;
 }
 
@@ -170,6 +224,18 @@ function MG04_Tracker({ nav }) {
   const [brand, setBrand] = useState("");
   const [q, setQ] = useState("");
   const [popupId, setPopupId] = useState(null);
+  const [colsOpen, setColsOpen] = useState(false);
+  const COMPACT_COLS = ["brand", "project", "size", "packType", "tt", "targetFg", "targetRmc", "lastCode", "stage", "feedback", "stClient", "locked", "po", "launchQty"];
+  const [visCols, setVisCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem("naturis.tracker.cols")); return Array.isArray(v) && v.length ? v : TRK_COLS.map(c => c[0]); } catch (e) { return TRK_COLS.map(c => c[0]); } });
+  function saveCols(v) { setVisCols(v); try { localStorage.setItem("naturis.tracker.cols", JSON.stringify(v)); } catch (e) {} }
+  const SHOWN = TRK_COLS.filter(c => visCols.includes(c[0]));
+  function exportCsv(rows2) {
+    const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const csv = [SHOWN.map(c => c[1]).join(",")].concat(rows2.map(r => SHOWN.map(([k]) => esc(r[k])).join(","))).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" }));
+    a.download = "naturis-master-tracker.csv"; a.click(); URL.revokeObjectURL(a.href);
+  }
   const rows = trackerRows().filter(r => (!brand || r.brand === brand) && (!q || (r.brand + " " + r.project + " " + r.stage).toLowerCase().includes(q.toLowerCase())));
   const brands = Array.from(new Set(DG.REQUIREMENTS.map(r => r.brand)));
   const YN = v => v === "Yes" ? <span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)" }}>Yes</span>
@@ -178,7 +244,19 @@ function MG04_Tracker({ nav }) {
     : v === "Pending" ? <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>{v}</span> : v;
   return <div className="col gap-4">
     <PageHead title="Master project tracker" sub="One row per project — sampling, costing, PO & launch readiness. Hover any column header for its definition."
-      actions={<button className="btn btn-secondary btn-sm"><Icon name="download" size={14} /> Export CSV</button>} />
+      actions={<div className="row gap-2" style={{ position: "relative" }}>
+        <button className="btn btn-secondary btn-sm" onClick={() => setColsOpen(o => !o)}><Icon name="settings" size={14} /> Columns ({SHOWN.length}/{TRK_COLS.length})</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => exportCsv(rows)}><Icon name="download" size={14} /> Export CSV</button>
+        {colsOpen && <div style={{ position: "absolute", right: 0, top: 38, zIndex: 50, width: 320, maxHeight: 420, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "var(--sh-lg)", padding: 12 }}>
+          <div className="row gap-2" style={{ marginBottom: 10 }}>
+            <button className="btn btn-sm" onClick={() => saveCols(TRK_COLS.map(c => c[0]))}>Master view (all)</button>
+            <button className="btn btn-sm btn-secondary" onClick={() => saveCols(COMPACT_COLS)}>Compact (14)</button>
+          </div>
+          {TRK_COLS.map(([k, label]) => <label key={k} className="row gap-2" style={{ padding: "5px 4px", cursor: "pointer", fontSize: 12.5 }}>
+            <input type="checkbox" checked={visCols.includes(k)} disabled={k === "brand"} onChange={e => saveCols(e.target.checked ? [...visCols, k] : visCols.filter(x => x !== k))} />
+            <span>{label}</span></label>)}
+        </div>}
+      </div>} />
     <div className="row gap-3 wrap">
       <select className="select" style={{ width: 160 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
       <div style={{ position: "relative", width: 260 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span>
@@ -192,13 +270,13 @@ function MG04_Tracker({ nav }) {
     </div>}
     {rows.length > 0 && <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ overflowX: "auto", maxHeight: "68vh", overflowY: "auto" }}>
-        <table className="tbl" style={{ minWidth: 3300 }}>
+        <table className="tbl" style={{ minWidth: SHOWN.length > 16 ? 3300 : SHOWN.length * 140 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
-            <tr>{TRK_COLS.map(([k, label, def]) => <th key={k} title={def} style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "10px 12px", whiteSpace: "nowrap", textAlign: "left", cursor: "help" }}>{label}</th>)}</tr>
+            <tr>{SHOWN.map(([k, label, def]) => <th key={k} title={def} style={{ position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 3 : undefined, background: "var(--brand)", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "10px 12px", whiteSpace: "nowrap", textAlign: "left", cursor: "help" }}>{label}</th>)}</tr>
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} className="clickable" title="Click to open the full requirement" onClick={() => setPopupId(r.id)}>
-              {TRK_COLS.map(([k]) => <td key={k} style={{ padding: "9px 12px", fontSize: 12, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
+              {SHOWN.map(([k]) => <td key={k} style={{ padding: "9px 12px", fontSize: 12, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 260 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
                 {k === "brand" ? <span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}<b>{r.brand}</b></span>
                   : k === "stage" ? <StatusPill status={r.stage} size="sm" />
                   : k === "lastCode" || k === "locked" ? <span className="mono" style={{ fontSize: 11.5 }}>{r[k]}</span>
@@ -232,6 +310,7 @@ function MG03_Reports({ nav }) {
     { key: "market", label: "Market Intelligence", icon: "overview", desc: "Geography, product types, reach, growth" },
     { key: "tat", label: "TAT Intelligence", icon: "clock", desc: "Response & turnaround times across the funnel" },
     { key: "critical", label: "Critical Intelligence", icon: "alert", desc: "Unanswered queries & stuck pipeline" },
+    { key: "category", label: "Category Intelligence", icon: "brand", desc: "Market pricing & volumes — manually maintained" },
   ];
   /* ---- client suite data ---- */
   const mine = reqs.filter(r => r.brand === acc.name);
@@ -253,7 +332,7 @@ function MG03_Reports({ nav }) {
   return <div className="col gap-5">
     <PageHead title="Intelligence reports" sub="Four suites — exactly the report set agreed with the leadership team. Software scope ends at PO receipt."
       actions={<><button className="btn btn-secondary btn-sm"><Icon name="calendar" size={14} /> Schedule</button><button className="btn btn-secondary btn-sm"><Icon name="download" size={14} /> Export</button></>} />
-    <div className="grid grid-4 gap-3">
+    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
       {SUITES.map(t => { const on = suite === t.key;
         return <button key={t.key} onClick={() => setSuite(t.key)} style={{ textAlign: "left", border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 14, padding: "14px 16px", transition: "all .15s",
           background: on ? (t.key === "critical" ? "var(--grad-coral)" : "var(--grad-brand)") : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 8px 20px rgba(18,57,95,.26)" : "none" }}>
@@ -298,7 +377,7 @@ function MG03_Reports({ nav }) {
       <div className="grid grid-4 gap-3">
         <ReportKPI label="Queries this quarter" value={String(reqs.length + 32)} delta="+18% vs last qtr" good />
         <ReportKPI label="New clients this month" value="3" delta="West 2 · South 1" good />
-        <ReportKPI label="Product success rate" value={String(successRate)} suffix="%" delta="approved ÷ sampled" good={successRate >= 50} />
+        <ReportKPI label="Product success rate" value={String(successRate)} suffix="%" delta="approved for production ÷ sampled" good={successRate >= 50} />
         <ReportKPI label="Regions serviced" value="5" delta={Object.values(REGION_REACH).reduce((a, b) => a + b, 0) + " active companies"} />
       </div>
       <div className="grid grid-2 gap-4">
@@ -350,7 +429,24 @@ function MG03_Reports({ nav }) {
           <tbody>{stuck.map(r => <tr key={r.id}><Td mono><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.id}</span></Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><Aging days={r.age} /></Td></tr>)}</tbody></table></div>
           : <div className="body-sm" style={{ padding: "4px 18px 18px" }}>Nothing stuck. 🎉</div>}
       </div>
+      <div className="card" style={{ padding: 0 }}>
+        <div style={{ padding: "16px 18px 0" }}><SectionTitle sub="Auto-flagged the moment any stage exceeds its SLA — no manual tagging">SLA breaches by stage</SectionTitle></div>
+        {(() => { const br = window.vvipSort(reqs.filter(r => DG.slaStatus(r).level === "red"));
+          return br.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>Stage</Th><Th>Phase</Th><Th>Days over</Th></tr></thead>
+            <tbody>{br.map(r => { const sla = DG.slaStatus(r); return <tr key={r.id}><Td mono>{r.id}</Td><Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)", textTransform: "capitalize" }}>{sla.phase}</span></Td><Td><span className="pill pill-sm" style={{ background: "var(--coral-wash)", color: "var(--coral-dark)", fontWeight: 700 }}>{sla.daysOver}d over</span></Td></tr>; })}</tbody></table></div>
+            : <div className="body-sm" style={{ padding: "4px 18px 18px" }}>No SLA breaches right now. 🎉</div>; })()}
+      </div>
       <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>Scope note: the software ends at PO receipt — lifetime value, repeat orders and PO-to-PO gaps are intentionally out of scope.</div>
+    </>}
+
+    {suite === "category" && <>
+      <div style={{ padding: "10px 16px", borderRadius: 10, background: "var(--review-bg)", display: "flex", gap: 10, alignItems: "center" }}>
+        <Icon name="alert" size={15} color="var(--review-fg)" /><span className="body-sm" style={{ color: "var(--review-fg)" }}><b>Manually maintained</b> market data · visible to Management & Super Admin only. (Marketplace scraping is parked pending legal review.)</span></div>
+      <div className="card" style={{ padding: 0 }}>
+        <div style={{ padding: "16px 18px 0" }}><SectionTitle sub="Average MRP, selling price & pack volume per category">Category market benchmarks</SectionTitle></div>
+        <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Category</Th><Th>Avg MRP</Th><Th>Avg selling price</Th><Th>Avg pack qty</Th><Th>Price per ml</Th><Th>Our sampled SKUs</Th></tr></thead>
+          <tbody>{DG.CATEGORY_MARKET.map(c => <tr key={c.category}><Td><b>{c.category}</b></Td><Td mono>{c.avgMrp}</Td><Td mono>{c.avgSp}</Td><Td mono>{c.avgQty}</Td><Td mono>{c.perMl}</Td><Td mono>{reqs.filter(r => r.category === c.category || (r.category || "").includes(c.category.split(" ")[0])).length}</Td></tr>)}</tbody></table></div>
+      </div>
     </>}
   </div>;
 }
