@@ -171,7 +171,7 @@ const CAL_DATES = (() => {
   return { 1: week(mon), 2: week(mon2), today: fmt(now) };
 })();
 const CAL_TIMES = ["09:00", "11:00", "14:00", "16:00"];
-function LabStationCalendar({ value, onChange, title, sub }) {
+function LabStationCalendar({ value, onChange, title, sub, readOnly }) {
   const [week, setWeek] = useState((value && value.week) || 1);
   const booked = (w, si, di, ti) => ((si * 7 + di * 5 + ti * 3 + w * 4) % 11) === 0;
   const sel = value || null;
@@ -199,7 +199,7 @@ function LabStationCalendar({ value, onChange, title, sub }) {
             {CAL_DAYS.map((day, di) => CAL_TIMES.map((t, ti) => {
               const b = booked(week, si, di, ti), seld = isSel(si, di, ti);
               return <td key={day + t}>
-                <button disabled={b && !seld} onClick={() => onChange && onChange(seld ? null : { week, si, di, ti, label: name + " · " + kind.split(" /")[0] + " · " + day + " " + ((CAL_DATES[week] || [])[di] || "") + " · " + t })}
+                <button disabled={readOnly || (b && !seld)} onClick={() => !readOnly && onChange && onChange(seld ? null : { week, si, di, ti, label: name + " · " + kind.split(" /")[0] + " · " + day + " " + ((CAL_DATES[week] || [])[di] || "") + " · " + t })}
                   style={{ width: 44, height: 34, borderRadius: 8, border: "none", cursor: b ? "not-allowed" : "pointer",
                     background: seld ? "var(--brand)" : b ? "var(--rejected-bg)" : "var(--approved-bg)",
                     display: "flex", alignItems: "center", justifyContent: "center", transition: "transform .1s" }}

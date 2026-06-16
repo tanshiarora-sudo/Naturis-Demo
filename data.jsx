@@ -11,6 +11,7 @@ const ROLES = [
   { id: "lab",     name: "Lab Technician", person: "Sumit Choudhary", desc: "Acknowledges & runs the bench",      initials: "SC" },
   { id: "labmgr",  name: "Lab Manager",    person: "Dipti OV",        desc: "Runs the daily lab-meeting gate",    initials: "DO" },
   { id: "mgmt",    name: "Management",     person: "Rahul Tandon",    desc: "Command centre & intelligence",      initials: "RT" },
+  { id: "planner", name: "Lab Planner",    person: "Asha Rane",       desc: "Books lab stations · owns the slot board", initials: "AR" },
   { id: "admin",   name: "Super Admin",    person: "Abhijit Jhala",   desc: "Users, groups, rulebook, routing",   initials: "AJ" },
 ];
 
@@ -423,14 +424,66 @@ const REQUIREMENTS = [
     owner: "Sales SPOC", ownership: "escalated" },
 ].map(function (r) { return Object.assign({}, REQ_DEFAULTS, r); });
 var DESK_TECH = { EPD: "Sumit Choudhary", REN: "Meera Iyer", TT: "Tariq Khan", NPD: "Arjun Nair" };
-var SEED_LABSTAGE = { "Formulation": "Sheet pending", "Trial": "Under lab trials", "QC": "QC testing", "Fill": "Ready — awaiting QC", "Ready for dispatch": "Ready to send", "Dispatch awaiting SPOC approval": "Ready to send", "Sent to client": "Dispatched", "Client approved": "Dispatched", "In stability": "Dispatched", "Archived": "Dispatched" };
+/* ---- generated demo queries — gets the lab pipeline to ~70 live (12 Jun lab meeting scale) ---- */
+(function generateLabQueries() {
+  var BR = [["Plum", "Pureplay Skin Sciences"], ["Pilgrim", "Heavenly Secrets"], ["Nykaa", "FSN E-Commerce"], ["Asaya", "Asaya Care"], ["Nua", "Nirvana Being"], ["Mamaearth", "Honasa Consumer"]];
+  var TPL = [
+    ["Skin Care", "Serum", "Aqueous gel", "Niacinamide Clarifying Serum"], ["Skin Care", "Serum", "Aqueous gel", "Retinol Renewal Serum"],
+    ["Skin Care", "Cream", "O/W emulsion", "Ceramide Night Cream"], ["Skin Care", "Moisturiser", "O/W emulsion", "Oil-Free Gel Moisturiser"],
+    ["Skin Care", "Cleanser", "Surfactant blend", "Gentle Foaming Cleanser"], ["Skin Care", "Toner", "Aqueous", "Glow Tonic Exfoliating Toner"],
+    ["Skin Care", "Face Oil", "Anhydrous", "Squalane Radiance Oil"], ["Skin Care", "Mask", "O/W emulsion", "Clay Detox Mask"],
+    ["Hair Care", "Shampoo", "Surfactant blend", "Anti-Dandruff Shampoo"], ["Hair Care", "Conditioner", "O/W emulsion", "Smoothing Conditioner"],
+    ["Hair Care", "Hair Oil", "Anhydrous", "Onion Growth Hair Oil"], ["Hair Care", "Hair Serum", "Aqueous", "Frizz-Control Hair Serum"],
+    ["Hair Care", "Hair Mask", "O/W emulsion", "Keratin Repair Mask"], ["Hair Care", "Scalp Tonic", "Aqueous", "Caffeine Scalp Tonic"],
+    ["Sun Care", "SPF Fluid", "Hybrid emulsion", "Invisible SPF 50 Fluid"], ["Sun Care", "Sunscreen Lotion", "O/W emulsion", "Hydrating SPF 30 Lotion"],
+    ["Sun Care", "After-Sun Gel", "Aqueous gel", "Aloe After-Sun Gel"], ["Body Care", "Body Lotion", "O/W emulsion", "Vitamin E Body Lotion"],
+    ["Body Care", "Body Wash", "Surfactant blend", "Shea Body Wash"], ["Body Care", "Body Butter", "Anhydrous", "Cocoa Body Butter"],
+    ["Colour", "Lip Tint", "Anhydrous", "Matte Lip Tint — Berry"], ["Colour", "Lipstick", "Anhydrous", "Creamy Lipstick — Nude"],
+    ["Skin Care", "Serum", "Aqueous gel", "Hyaluronic Hydra Serum"], ["Skin Care", "Cream", "O/W emulsion", "Brightening Day Cream"],
+    ["Hair Care", "Shampoo", "Surfactant blend", "Rice Protein Shampoo"], ["Skin Care", "Cleanser", "Surfactant blend", "Salicylic Acne Wash"],
+  ];
+  var STAT = ["Logged", "Logged", "Approved", "Acknowledged", "In evaluation", "Formulation", "Trial", "QC", "Ready for dispatch", "In stability"];
+  var TYPES = ["EPD", "REN", "EPD", "NPD", "TT", "REN", "EPD", "NPD"];
+  var SPOCS = ["Hardik Shah", "Divya Rao"];
+  var MON = ["12 Jun", "11 Jun", "10 Jun", "9 Jun", "6 Jun", "4 Jun", "2 Jun", "29 May", "26 May", "21 May", "15 May", "8 May"];
+  var CHEM = ["Sumit Choudhary", "Meera Iyer", "Tariq Khan", "Arjun Nair", "Ritu Sharma", "Karan Malhotra"];
+  var out = [];
+  for (var i = 0; i < 50; i++) {
+    var br = BR[i % BR.length], tpl = TPL[i % TPL.length], status = STAT[i % STAT.length], type = TYPES[i % TYPES.length];
+    var seq = 601 + i, id = "REQ-2026-0" + seq, sub = SPOCS[i % 2], started = MON[i % MON.length] + " 2026";
+    var fg = 40 + (i % 9) * 14, rm = Math.round(fg * 0.62), pm = fg - rm - 4;
+    var ncl = "NCL-" + seq + "-001";
+    out.push({
+      id: id, title: tpl[3], brand: br[0], categoryGroup: tpl[0], category: tpl[1], base: tpl[2],
+      status: status, projectType: type, currentNcl: ncl,
+      ncls: [{ code: ncl, by: sub, at: MON[i % MON.length], delta: "Brief intake — " + tpl[3], status: "current" }],
+      aiTrack: (i % 4) + 1, aiCode: "NTL-" + tpl[1].slice(0, 2).toUpperCase() + "-0" + (10 + (i % 80)), aiScore: 60 + (i % 38),
+      aiRationale: "Auto-matched from the " + tpl[1].toLowerCase() + " base.", aiSimilarWork: [],
+      submittedBy: sub, submittedAt: started, age: 1 + (i % 40), phaseDays: 1 + (i % 12),
+      moq: (3 + (i % 12)) + ",000 units", packaging: tpl[1] === "Hair Oil" || tpl[1] === "Face Oil" ? "100ml dropper" : "50ml " + (tpl[2].indexOf("emulsion") >= 0 ? "jar" : "bottle"),
+      targetSampleDate: MON[(i + 3) % MON.length] + " 2026", budget: { unit: "₹" + fg, batch: "₹" + (3 + i % 9) + "L" },
+      actives: [], nonNegotiable: [], goodToHave: [],
+      concerns: [], claims: [],
+      sensory: { fragrance: "Per brief", colour: "Per brief", texture: tpl[1] },
+      briefDetail: { company: br[1], fillVol: "50ml", labelDesc: br[0] + " " + tpl[3], shipping: br[0] + " WH", rmBudget: String(rm), pmBudget: String(pm), fg: fg, notes: "Generated demo query for lab-scale testing." },
+      tracker: ["In evaluation", "Formulation", "Trial", "QC", "Ready for dispatch", "In stability"].indexOf(status) >= 0 ? CHEM[i % CHEM.length] : null,
+      owner: "Lab", ownership: "shared",
+    });
+  }
+  out.forEach(function (r) { REQUIREMENTS.push(Object.assign({}, REQ_DEFAULTS, r)); });
+})();
+
+var SEED_LABSTAGE = { "Formulation": "Sheet pending", "Trial": "In trials", "QC": "QC testing in process", "Fill": "Ready to send", "Ready for dispatch": "Ready to send", "Dispatch awaiting SPOC approval": "Ready to send", "Sent to client": "Dispatched", "Client approved": "Dispatched", "In stability": "Dispatched", "Archived": "Dispatched" };
 var SEED_DISPATCH_DATE = { "Dispatch awaiting SPOC approval": "9 Jun 2026", "Sent to client": "5 Jun 2026", "Client approved": "28 May 2026", "In stability": "22 May 2026", "Archived": "5 May 2026" };
+var LAB_STARTED = ["In evaluation", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch", "Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"];
 REQUIREMENTS.forEach(function (r) {
   if (!r.labStage && SEED_LABSTAGE[r.status]) r.labStage = SEED_LABSTAGE[r.status];
   if (!r.dispatchedOn && SEED_DISPATCH_DATE[r.status]) r.dispatchedOn = SEED_DISPATCH_DATE[r.status];
   r.createdBy = r.submittedBy; r.account = r.account || r.brand; r.manualFlag = (r.flags || []).length > 0;
   var t = DESK_TECH[r.projectType];
-  if (r.tracker) r.tracker = t;
+  // anything the lab is actively working has been acknowledged & assigned to a chemist
+  if (LAB_STARTED.indexOf(r.status) >= 0) { r.assigned = true; if (!r.tracker) r.tracker = t; }
+  if (r.tracker) r.tracker = r.tracker;
   (r.queries || []).forEach(function (q) { if (q.by === "Sumit Choudhary" || q.by === "Tariq Khan") q.by = t; });
   (r.flags || []).forEach(function (f) { if (f.raisedByRole === "Lab Technician") f.raisedBy = t; if (f.resolvedBy === "Sumit Choudhary") f.resolvedBy = t; });
   (r.ncls || []).forEach(function (n) { if (n.by === "Sumit Choudhary" || n.by === "Tariq Khan") n.by = t; });
@@ -643,7 +696,8 @@ window.NaturisStore = {
   confirmResolve(id, flagId, by) { const r = this.get(id); const f = r && r.flags.find(x => x.id === flagId); if (f) { f.resolved = true; f.resolvedPending = false; this.log(id, { kind: "approval", icon: "check", stage: "Flag resolved", actor: by, role: "SPOC", at: "just now", detail: "Flag resolved: " + (f.solution || "") }); } _bump(); },
   log(id, ev) { (REQUIREMENT_TIMELINES[id] = REQUIREMENT_TIMELINES[id] || []).forEach(e => e.current = false); (REQUIREMENT_TIMELINES[id] = REQUIREMENT_TIMELINES[id] || []).push(ev); },
   // ---- lab lifecycle ----
-  acknowledge(id, by) { const r = this.get(id); if (r) { r.status = "Acknowledged"; this.log(id, { kind: "handoff", icon: "incoming", stage: "Acknowledged", actor: by, role: "Lab", at: "just now", detail: "Lab acknowledged — awaiting lab meeting.", current: true }); } _bump(); },
+  acknowledge(id, by) { const r = this.get(id); if (r) { r.status = "Acknowledged"; r.assigned = false; this.log(id, { kind: "handoff", icon: "incoming", stage: "Acknowledged", actor: by, role: "Lab", at: "just now", detail: "Lab acknowledged (seen & reviewed) — awaiting chemist assignment by the lab manager.", current: true }); this._notify(id, "queue", "info", id + " acknowledged — assign a chemist", "Reviewed by " + by + ". Assign it to a lab chemist.", "NR-04"); } _bump(); },
+  assignChemist(id, chemist, by) { const r = this.get(id); if (r) { r.tracker = chemist; r.assigned = true; if (r.status !== "Acknowledged" && !["In evaluation"].includes(r.status)) r.status = "Acknowledged"; this.log(id, { kind: "assigned", icon: "team", stage: "Chemist assigned", actor: by, role: "Lab Manager", at: "just now", detail: "Assigned to " + chemist + " for evaluation.", current: true }); this._notify(id, "queue", "info", id + " assigned to " + chemist, "Lab manager assigned this query to you.", "NR-04"); } _bump(); },
   acceptCommit(id, days, by) { const r = this.get(id); if (r) { r.status = "Accepted — date committed"; r.committedDays = days; this.log(id, { kind: "approval", icon: "check", stage: "Accepted", actor: by, role: "Lab Mgr", at: "just now", detail: `Accepted at lab meeting — earliest dispatch ~${days}d.`, current: true }); NOTIFICATIONS.unshift({ id: "N-" + (++_evSeq), type: "dispatch", severity: "info", title: "Lab committed a date on " + id, body: `Earliest dispatch ~${days} days.`, at: "just now", read: false, req: id, rule: "NR-04" }); } _bump(); },
   sendBack(id, note, by) { const r = this.get(id); if (r) { r.status = "Returned — needs revision"; this.log(id, { kind: "flag", icon: "alert", stage: "Returned", actor: by, role: "Lab Mgr", at: "just now", severity: "med", detail: "Sent back: " + (note || "needs revision"), current: true }); } _bump(); },
   advanceStage(id, status, by) { const r = this.get(id); if (r) { r.status = status; this.log(id, { kind: "status", icon: "work", stage: status, actor: by, role: "Lab", at: "just now", detail: "Advanced to " + status, current: true }); } _bump(); },
@@ -680,6 +734,8 @@ window.NaturisData.LAB_DESKS = {
   NPD: { tech: "Arjun Nair", initials: "AN" },
 };
 window.NaturisData.LAB_MANAGER = "Dipti OV";
+window.NaturisData.LAB_CHEMISTS = ["Sumit Choudhary", "Meera Iyer", "Tariq Khan", "Arjun Nair", "Ritu Sharma", "Karan Malhotra"];
+window.NaturisData.LAB_PLANNER = "Asha Rane";
 
 /* ---------- Client fit score (4 dimensions, management-only) ---------- */
 const FIT_SCORES = {
@@ -823,13 +879,13 @@ window.NaturisStore.addAudit = function (rec) {
 window.NaturisData.REGIONS = ["North", "South", "East", "West", "Central"];
 /* 10-stage live lab status — exactly Dhruv's list (12 Jun lab meeting) */
 window.NaturisData.LAB_LIVE_STAGES = [
-  "RM / PM pending", "Sheet pending", "Formulation sheet ready", "Under lab trials",
-  "Ready — awaiting QC", "QC testing", "QC evaluation", "Rework trial", "Ready to send", "Dispatched",
+  "RM / PM pending", "Sheet pending", "Sheet ready", "In trials", "QC testing pending",
+  "QC testing in process", "Evaluation pending", "Rework / retrial", "Ready to send", "Dispatched",
 ];
 window.NaturisData.LAB_STAGE_TO_STATUS = {
-  "RM / PM pending": "Formulation", "Sheet pending": "Formulation", "Formulation sheet ready": "Formulation",
-  "Under lab trials": "Trial", "Ready — awaiting QC": "QC", "QC testing": "QC", "QC evaluation": "QC",
-  "Rework trial": "Trial", "Ready to send": "Ready for dispatch",
+  "RM / PM pending": "Formulation", "Sheet pending": "Formulation", "Sheet ready": "Formulation",
+  "In trials": "Trial", "QC testing pending": "QC", "QC testing in process": "QC", "Evaluation pending": "QC",
+  "Rework / retrial": "Trial", "Ready to send": "Ready for dispatch",
 };
 window.NaturisData.FAMILY_CATEGORIES = {
   "Skin Care": ["Serum", "Cream", "Moisturiser", "Cleanser", "Toner", "Face Oil", "Mask", "Lotion"],
@@ -862,6 +918,7 @@ window.NaturisData.PROFILE_OF = {
   labmgr:  { empId: "NAT-LM-002", name: "Dipti OV", email: "dipti@naturis.co", phone: "+91 99100 22002", office: "Jammu Lab", department: "R&D Lab", manager: "Rahul Tandon", region: "—", title: "Lab Manager" },
   mgmt:    { empId: "NAT-MG-001", name: "Rahul Tandon", email: "rahul@naturis.co", phone: "+91 98200 10001", office: "Mumbai HQ", department: "Leadership", manager: "—", region: "All India", title: "Management" },
   admin:   { empId: "NAT-AD-007", name: "Abhijit Jhala", email: "abhijit@naturis.co", phone: "+91 98200 10007", office: "Mumbai HQ", department: "Platform / IT", manager: "Rahul Tandon", region: "All India", title: "Super Admin" },
+  planner: { empId: "NAT-PL-003", name: "Asha Rane", email: "asha@naturis.co", phone: "+91 99100 22055", office: "Jammu Lab", department: "R&D Lab · Planning", manager: "Dipti OV", region: "—", title: "Lab Planner" },
 };
 // augment admin users with employee details + region
 (function () {
@@ -917,7 +974,7 @@ window.checkRulebook = function (ingredients, base) {
 };
 
 /* ---------- persistence — created/updated records survive reloads (real-platform feel) ---------- */
-var NATURIS_STATE_KEY = "naturis.state.v8";
+var NATURIS_STATE_KEY = "naturis.state.v9";
 function _persist() {
   try {
     localStorage.setItem(NATURIS_STATE_KEY, JSON.stringify({

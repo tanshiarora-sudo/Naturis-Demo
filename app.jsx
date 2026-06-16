@@ -3,7 +3,7 @@
    Tweaks panel, role switcher, notifications drawer.
    ============================================================ */
 
-const DEFAULT_SCREEN = { spoc: "SP-01", manager: "SM-01", lab: "LB-01", labmgr: "LM-01", mgmt: "MG-01", admin: "GL-01" };
+const DEFAULT_SCREEN = { spoc: "SP-01", manager: "SM-01", lab: "LB-01", labmgr: "LM-01", planner: "LM-05", mgmt: "MG-01", admin: "GL-01" };
 
 /* ---------- TWEAKS PANEL (Appearance · Theme) ---------- */
 function TweaksPanel({ open, onClose, onThemeChange }) {

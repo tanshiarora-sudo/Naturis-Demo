@@ -218,8 +218,8 @@ function LM03_Planning({ nav }) {
         <div className="row between" style={{ marginBottom: 4 }}><span style={{ fontSize: 13, fontWeight: 500 }}>{s}</span><span className="mono" style={{ fontSize: 12, color: load > 80 ? "var(--coral)" : "var(--muted)" }}>{load}%</span></div>
         <div className="bar-track" style={{ height: 12 }}><div className="bar-fill" style={{ width: load + "%", background: load > 80 ? "var(--coral)" : load > 60 ? "var(--warn)" : "var(--ok)" }} /></div></div>)}</div></div>}
     {tab === "calendar" && <div className="card">
-      <LabStationCalendar value={lmSlot} onChange={setLmSlot} title="Slot calendar — lab stations"
-        sub="Two-week booking horizon across the 5 stations. This replaces the Excel-based scheduling." />
+      <LabStationCalendar value={lmSlot} onChange={setLmSlot} readOnly title="Station board — view only (booked by the Lab Planner)"
+        sub="Two-week board across the 8 stations. Booking is done by the Lab Planner; this is your read-only view." />
     </div>}
     {tab === "workload" && <div className="card"><SectionTitle>Workload distribution by technician</SectionTitle>
       <div className="col gap-3">{techs.map(t => { const n = b.active.filter(r => techOf(r) === t).length; const pct = Math.min(100, n * 18);

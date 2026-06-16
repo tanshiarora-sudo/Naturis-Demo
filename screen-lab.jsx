@@ -22,9 +22,6 @@ const STAGE_STATUS = ["Formulation", "Trial", "QC", "Fill", "Ready for dispatch"
    LB-01 · DASHBOARD
    ==================================================================== */
 function LB01_Dashboard({ nav }) {
-  const [qType, setQType] = useState("all");
-  const [qSpoc, setQSpoc] = useState("all");
-  const [qText, setQText] = useState("");
   window.useStore();
   const reqs = DL.REQUIREMENTS;
   const needAck = window.vvipSort(reqs.filter(r => PRE_ACK.includes(r.status)));
@@ -69,20 +66,10 @@ function LB01_Dashboard({ nav }) {
         : <div className="body-sm" style={{ padding: "16px 18px" }}>Nothing on the bench yet.</div>}
     </div>
 
-    {/* consolidated query list — every lab query, filterable (scale: 60–70 live) */}
-    <div className="card" style={{ padding: 0 }}>
-      <div className="row between wrap gap-3" style={{ padding: "16px 18px" }}>
-        <div><div className="h3">All lab queries</div><div className="body-sm" style={{ fontSize: 12 }}>Everything in the lab pipeline — filter by desk, SPOC or text. You act on your desk; the rest is visibility.</div></div>
-        <div className="row gap-2 wrap">
-          {["all", "EPD", "REN", "TT", "NPD"].map(t => <button key={t} onClick={() => setQType(t)} className="btn btn-sm" style={{ background: qType === t ? "var(--brand)" : "var(--surface)", color: qType === t ? "#fff" : "var(--muted)", border: qType === t ? "none" : "1px solid var(--border)" }}>{t === "all" ? "All desks" : t}</button>)}
-          <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={qSpoc} onChange={e => setQSpoc(e.target.value)}><option value="all">All SPOCs</option>{Array.from(new Set(reqs.map(r => r.submittedBy))).map(s => <option key={s}>{s}</option>)}</select>
-          <input className="input" style={{ width: 180, height: 34, fontSize: 12 }} placeholder="Search id, brand, title…" value={qText} onChange={e => setQText(e.target.value)} />
-        </div>
-      </div>
-      {window.ReqTable && <window.ReqTable
-        rows={reqs.filter(r => !["Pending review", "Returned to SPOC", "Rejected"].includes(r.status))
-          .filter(r => (qType === "all" || r.projectType === qType) && (qSpoc === "all" || r.submittedBy === qSpoc) && (!qText || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(qText.toLowerCase())))}
-        onOpen={r => nav("LB-03", { reqId: r.id })} cols={["id", "brand", "title", "type", "status", "age"]} />}
+    <div className="card" style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--brand-wash)" }}>
+      <Icon name="list" size={18} color="var(--brand)" />
+      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13.5 }}>The full query desk lives in its own tab</div><div className="body-sm" style={{ fontSize: 12 }}>Every lab query — all desks, all statuses, filterable by category, brand & type.</div></div>
+      <button className="btn btn-sm" onClick={() => nav("LB-02")}>Open query desk <Icon name="arrowRight" size={13} /></button>
     </div>
   </div>;
 }
@@ -113,61 +100,88 @@ function QAHistory({ req }) {
 const PT_TINT = { EPD: "var(--pt-epd-bg)", REN: "var(--pt-ren-bg)", TT: "var(--pt-tt-bg)", NPD: "var(--pt-npd-bg)" };
 const PT_INK = { EPD: "var(--pt-epd-fg)", REN: "var(--pt-ren-fg)", TT: "var(--pt-tt-fg)", NPD: "var(--pt-npd-fg)" };
 /* LM-only: acknowledge & assign with auto-suggested desk (12 Jun meeting) */
-function AssignControl({ req, suggested }) {
-  const techs = Object.values(window.NaturisData.LAB_DESKS).map(dd => dd.tech);
-  const [tech, setTech] = useState(suggested || techs[0]);
+/* LM-only inline chemist assignment (after the tech has acknowledged) */
+function ChemistAssign({ req }) {
+  const chems = window.NaturisData.LAB_CHEMISTS;
+  const suggested = ((window.NaturisData.LAB_DESKS || {})[req.projectType] || {}).tech || chems[0];
+  const [c, setC] = useState(suggested);
   return <span className="row gap-2" style={{ alignItems: "center" }}>
-    <select className="select" style={{ height: 32, fontSize: 12, width: 168 }} value={tech} onChange={e => setTech(e.target.value)}>
-      {techs.map(t => <option key={t} value={t}>{t}{t === suggested ? " · suggested" : ""}</option>)}
+    <select className="select" style={{ height: 30, fontSize: 11.5, width: 150 }} value={c} onChange={e => setC(e.target.value)}>
+      {chems.map(x => <option key={x} value={x}>{x}{x === suggested ? " · suggested" : ""}</option>)}
     </select>
-    <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.assign(req.id, tech, "Dipti OV")}><Icon name="check" size={13} /> Acknowledge & assign</button>
+    <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.assignChemist(req.id, c, "Dipti OV")}><Icon name="check" size={12} /> Assign</button>
   </span>;
 }
 
 function LB02_Incoming({ nav, role }) {
   window.useStore();
   const reqs = DL.REQUIREMENTS;
+  const isLM = role === "labmgr";
   const [popup, setPopup] = useState(null);
-  const queue = window.vvipSort(reqs.filter(r => PRE_ACK.includes(r.status)));
+  const [fam, setFam] = useState("all");
+  const [brand, setBrand] = useState("all");
+  const [type, setType] = useState("all");
+  const [q, setQ] = useState("");
   const Popup = window.RequirementPopup;
-  return <div className="col gap-5">
-    <PageHead title="Query desk" sub={role === "labmgr" ? "Acknowledge & assign — queries stay here until you assign them to a desk. Acknowledge = seen & reviewed, not acceptance." : "All incoming queries, every desk — visible to everyone, assigned by the lab manager. You act once a query lands on your desk in Evaluation."} />
-    {queue.length === 0 && <div className="card" style={{ textAlign: "center", padding: 40 }}><Icon name="check" size={24} color="var(--approved-fg)" /><div className="h3" style={{ marginTop: 8 }}>Nothing new</div><div className="body-sm" style={{ marginTop: 4 }}>All caught up. 🎉</div></div>}
-    {TYPE_DESKS_LB.map(t => { const items = queue.filter(r => r.projectType === t); if (!items.length) return null;
-      const desk = DL.LAB_DESKS[t] || {};
-      return <div key={t} className="card" style={{ padding: 0, overflow: "hidden", background: `linear-gradient(180deg, ${PT_TINT[t]} 0%, var(--surface) 140px)` }}>
-        {/* one continuous desk section — type-tinted card, gradient header, rows inside */}
-        <div className="row between" style={{ padding: "16px 20px", background: `linear-gradient(120deg, ${PT_TINT[t]} 0%, var(--surface) 72%)`, borderBottom: "1px solid var(--border)" }}>
-          <div className="row gap-3">
-            <span style={{ width: 42, height: 42, borderRadius: 12, background: PT_INK[t], display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="incoming" size={20} color="#fff" /></span>
-            <div>
-              <div className="row gap-2"><span style={{ fontWeight: 800, fontSize: 15 }}>{t} desk</span><ProjectTypePill type={t} showLabel /></div>
-              <div className="body-sm" style={{ fontSize: 12 }}>{desk.tech} · Lab Mgr {DL.LAB_MANAGER} looped in</div>
-            </div>
-          </div>
-          <span className="pill" style={{ background: PT_INK[t], color: "#fff", fontWeight: 700 }}>{items.length} new</span>
-        </div>
-        {items.map((r, i) => <div key={r.id} className="row between" style={{ padding: "14px 20px", borderTop: i > 0 ? "1px solid var(--border)" : "none", gap: 14, flexWrap: "wrap" }}>
-          <div className="row gap-3" style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: PT_INK[t], flexShrink: 0 }} />
-            <div style={{ minWidth: 0 }}>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-                {r.vvip && <VVIPBadge size="sm" />}
-                <span className="mono" style={{ fontSize: 11.5, color: "var(--brand-mid)", fontWeight: 600 }}>{r.id}</span>
-                <StartDate req={r} />
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 14.5, marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
-              <div className="body-sm" style={{ fontSize: 12 }}>SPOC {r.submittedBy} · {r.category}</div>
-            </div>
-          </div>
-          <div className="row gap-2" style={{ flexShrink: 0, alignItems: "center" }}>
-            <button className="btn btn-sm" style={{ background: "var(--grad-brand)" }} onClick={() => setPopup({ id: r.id, tab: "brief" })}><Icon name="note" size={13} /> View initial requirement</button>
-            <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "timeline" })}><Icon name="history" size={13} /> Open timeline</button>
-            {role === "labmgr" ? <AssignControl req={r} suggested={desk.tech} />
-              : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 600 }}><Icon name="clock" size={11} color="var(--review-fg)" /> awaiting LM assignment</span>}
-          </div>
-        </div>)}
-      </div>; })}
+  // every query that has reached the lab (excludes those still with sales)
+  const lab = reqs.filter(r => !["Pending review", "Returned to SPOC", "Rejected"].includes(r.status));
+  const fams = ["all", ...Array.from(new Set(lab.map(r => r.categoryGroup).filter(Boolean)))];
+  const brands = Array.from(new Set(lab.map(r => r.brand)));
+  const rows = window.vvipSort(lab.filter(r =>
+    (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) &&
+    (type === "all" || r.projectType === type) &&
+    (!q || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(q.toLowerCase()))));
+  const needsAck = r => PRE_ACK.includes(r.status);
+  const ackNoAssign = r => r.status === "Acknowledged" && !r.assigned;
+  const stChip = s => <StatusPill status={s} size="sm" />;
+  return <div className="col gap-4">
+    <PageHead title="Query desk" sub={isLM ? "Every query in the lab. The technician acknowledges; you then assign each one to a chemist." : "Every query in the lab — all desks, all statuses. Acknowledge what's new; the lab manager assigns the chemist."} />
+    {/* filters — category, brand, type, search */}
+    <div className="row between wrap gap-3">
+      <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+        {fams.map(f => <button key={f} onClick={() => setFam(f)} className="btn btn-sm" style={{ background: fam === f ? "var(--brand)" : "var(--surface)", color: fam === f ? "#fff" : "var(--muted)", border: fam === f ? "none" : "1px solid var(--border)" }}>{f === "all" ? "All categories" : f}</button>)}
+      </div>
+      <div className="row gap-2 wrap">
+        <select className="select" style={{ width: 140, height: 34, fontSize: 12 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="all">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
+        <select className="select" style={{ width: 120, height: 34, fontSize: 12 }} value={type} onChange={e => setType(e.target.value)}><option value="all">All types</option>{["EPD", "REN", "TT", "NPD"].map(t => <option key={t}>{t}</option>)}</select>
+        <div style={{ position: "relative", width: 200 }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={15} color="var(--muted)" /></span>
+          <input className="input" style={{ paddingLeft: 32, height: 34, fontSize: 12 }} placeholder="Search id, brand, title…" value={q} onChange={e => setQ(e.target.value)} /></div>
+      </div>
+    </div>
+    <div className="body-sm" style={{ fontSize: 12 }}>{rows.length} quer{rows.length !== 1 ? "ies" : "y"} · {lab.filter(needsAck).length} awaiting acknowledgement · {lab.filter(ackNoAssign).length} acknowledged, awaiting assignment</div>
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto", maxHeight: "66vh", overflowY: "auto" }}>
+        <table className="tbl" style={{ minWidth: 1080 }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
+            <tr>{["Req ID", "Brand", "Title", "Category", "Type", "Code", "Status", "Chemist", "Action"].map(h =>
+              <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "9px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map(r => <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-2" style={{ alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
+              <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
+              <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.categoryGroup} · {r.category}</td>
+              <td style={{ padding: "8px 12px" }}><ProjectTypePill type={r.projectType} /></td>
+              <td style={{ padding: "8px 12px" }}><span className="mono" style={{ fontSize: 11 }}>{r.currentNcl || "—"}</span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{stChip(r.status)}{r.labStage ? <span className="body-sm" style={{ fontSize: 10, display: "block", color: "var(--brand)", marginTop: 2 }}>{r.labStage}</span> : null}</td>
+              <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.tracker || <span style={{ color: "var(--muted)" }}>—</span>}</td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+                <span className="row gap-2" style={{ alignItems: "center" }}>
+                  <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "brief" })} title="View initial requirement"><Icon name="note" size={12} /></button>
+                  {needsAck(r) ? (isLM ? <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>awaiting tech ack</span>
+                      : <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.acknowledge(r.id, techOfReq(r))}><Icon name="check" size={12} /> Acknowledge</button>)
+                    : ackNoAssign(r) ? (isLM ? <ChemistAssign req={r} />
+                      : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>awaiting LM assignment</span>)
+                    : <button className="btn btn-sm btn-ghost" onClick={() => nav(EVAL_ST.includes(r.status) ? "LB-EVAL" : "LB-03", { reqId: r.id })}>Open <Icon name="arrowRight" size={12} /></button>}
+                </span>
+              </td>
+            </tr>)}
+            {!rows.length && <tr><td colSpan={9} style={{ padding: 34, textAlign: "center" }}><span className="body-sm">No queries match these filters.</span></td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
     {Popup && <Popup open={!!popup} onClose={() => setPopup(null)} reqId={popup && popup.id} tab={popup && popup.tab} />}
   </div>;
 }
@@ -265,11 +279,11 @@ function DecisionPanel({ req, nav }) {
 function LB_Eval({ params, nav }) {
   window.useStore();
   const reqs = DL.REQUIREMENTS;
-  const list = window.vvipSort(reqs.filter(r => EVAL_ST.includes(r.status)));
+  const list = window.vvipSort(reqs.filter(r => EVAL_ST.includes(r.status) && (r.assigned || r.tracker)));
   const recent = window.vvipSort(reqs.filter(r => DECIDED.includes(r.status)));
   const [sel, setSel] = useState(params.reqId || (list[0] && list[0].id));
   const [briefOpen, setBriefOpen] = useState(false);
-  const req = reqs.find(r => r.id === sel && EVAL_ST.includes(r.status)) || list[0];
+  const req = reqs.find(r => r.id === sel && EVAL_ST.includes(r.status) && (r.assigned || r.tracker)) || list[0];
   // the evaluation form shows by default — opening a lead silently moves it to "In evaluation"
   useEffect(() => { if (req && req.status === "Acknowledged") window.NaturisStore.startEvaluation(req.id, techOfReq(req)); }, [req && req.id, req && req.status]);
   const Popup = window.RequirementPopup;

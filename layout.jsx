@@ -29,10 +29,14 @@ const NAV = {
     { id: "LB-02", label: "Query desk", icon: "incoming", badge: true },
     { id: "LM-02", label: "Lab meeting", icon: "calendar", badge: true },
     { id: "LB-03", label: "Live work", icon: "work" },
-    { id: "LM-05", label: "Planning desk", icon: "kanban" },
     { id: "LM-03", label: "Planning & load", icon: "load" },
     { id: "LM-04", label: "Reports", icon: "report" },
     { id: "LB-05", label: "Approved projects", icon: "archive" },
+  ],
+  planner: [
+    { id: "LM-05", label: "Planning desk", icon: "kanban", badge: true },
+    { id: "LM-03", label: "Station board", icon: "load" },
+    { id: "GL-02", label: "Profile", icon: "user" },
   ],
   mgmt: [
     { id: "MG-01", label: "Overview", icon: "overview" },
@@ -83,6 +87,7 @@ function attentionCount(role, screen) {
     return R.filter(r => ["Approved", "R&D assessed", "R&D assessing", "Logged"].includes(r.status)).length; // LB-02 incoming
   }
   if (role === "labmgr") return R.filter(r => ["Approved","R&D assessed","R&D assessing","Acknowledged","In evaluation"].includes(r.status) || (r.queries||[]).some(q=>!q.resolved) || ["Declined","Rejected"].includes(r.status)).length + R.reduce((n, r) => n + (r.flags||[]).filter(f => !f.resolved && (/Lab/.test(f.owner || "") || f.raisedByRole === "Lab Technician")).length, 0);
+  if (role === "planner") return R.filter(r => ["Accepted — date committed", "Formulation", "Trial"].includes(r.status) && !(((r.evaluation || {}).slot || "").includes("Station"))).length;
   if (role === "admin") return D.NOTIFICATIONS.filter(n => !n.read).length;
   return 0;
 }
