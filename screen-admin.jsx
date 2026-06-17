@@ -133,28 +133,6 @@ function AD07_Accounts() {
         </div>
       </div>
     </div>
-    {/* ship-to address book — the dispatch directory (12 Jun lab sheets) */}
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div className="row between" style={{ padding: "16px 18px" }}>
-        <div><div className="h3">Ship-to address book</div><div className="body-sm" style={{ fontSize: 12 }}>Dispatch directory · "From" is always the Naturis lab. Green = active, red = discarded.</div></div>
-        <button className="btn btn-secondary btn-sm"><Icon name="plus" size={14} /> Add address</button>
-      </div>
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", padding: "0 16px 16px" }}>
-        {(DA.SHIP_ADDRESSES || []).map((s, i) => <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", opacity: s.status === "discarded" ? .6 : 1 }}>
-          <div className="row between" style={{ padding: "8px 12px", background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)" }}>
-            <span style={{ fontWeight: 700, fontSize: 13, color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)" }}>{s.client}</span>
-            <span className="pill pill-sm" style={{ background: "var(--surface)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize" }}>{s.status}</span>
-          </div>
-          <div style={{ padding: "10px 12px" }}>
-            <div className="label" style={{ fontSize: 8 }}>To</div>
-            <div className="body-sm" style={{ fontSize: 12, fontWeight: 600 }}>{s.contact}</div>
-            {s.to.map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)", textDecoration: s.status === "discarded" ? "line-through" : "none" }}>{ln}</div>)}
-            <div className="label" style={{ fontSize: 8, marginTop: 8 }}>From</div>
-            {(DA.NATURIS_LAB_ADDR || []).map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 10.5, color: "var(--grey)" }}>{ln}</div>)}
-          </div>
-        </div>)}
-      </div>
-    </div>
   </div>;
 }
 
@@ -289,7 +267,37 @@ function GL03_Settings() {
   </div>;
 }
 
+/* ====================================================================
+   AD-10 · SHIP-TO ADDRESS BOOK (dispatch directory)
+   ==================================================================== */
+function AD10_AddressBook() {
+  window.useStore();
+  const [q, setQ] = useState("");
+  const all = DA.SHIP_ADDRESSES || [];
+  const list = all.filter(s => !q || (s.client + " " + s.contact).toLowerCase().includes(q.toLowerCase()));
+  return <div className="col gap-5">
+    <PageHead title="Ship-to address book" sub="Dispatch directory · the Naturis lab is always the 'From'. Green = active, red = discarded."
+      actions={<div style={{ position: "relative", width: 240 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div>} />
+    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))" }}>
+      {list.map((s, i) => <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", opacity: s.status === "discarded" ? .6 : 1 }}>
+        <div className="row between" style={{ padding: "9px 14px", background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)" }}>
+          <span style={{ fontWeight: 700, fontSize: 13.5, color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)" }}>{s.client}</span>
+          <span className="pill pill-sm" style={{ background: "var(--surface)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize" }}>{s.status}</span>
+        </div>
+        <div style={{ padding: "12px 14px" }}>
+          <div className="label" style={{ fontSize: 8 }}>To</div>
+          <div className="body-sm" style={{ fontSize: 12.5, fontWeight: 600 }}>{s.contact}</div>
+          {s.to.map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)", textDecoration: s.status === "discarded" ? "line-through" : "none" }}>{ln}</div>)}
+          <div className="label" style={{ fontSize: 8, marginTop: 8 }}>From</div>
+          {(DA.NATURIS_LAB_ADDR || []).map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 10.5, color: "var(--grey)" }}>{ln}</div>)}
+        </div>
+      </div>)}
+      {!list.length && <div className="body-sm">No clients match.</div>}
+    </div>
+  </div>;
+}
+
 Object.assign(window.SCREENS, {
-  "AD-04": AD04_Users, "AD-05": AD05_Groups, "AD-07": AD07_Accounts, "AD-08": AD08_Rules, "AD-09": AD09_Audit,
+  "AD-10": AD10_AddressBook, "AD-04": AD04_Users, "AD-05": AD05_Groups, "AD-07": AD07_Accounts, "AD-08": AD08_Rules, "AD-09": AD09_Audit,
   "GL-01": GL01_Notifications, "GL-02": GL02_Profile, "GL-03": GL03_Settings,
 });

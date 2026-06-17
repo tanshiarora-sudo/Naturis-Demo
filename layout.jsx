@@ -34,11 +34,13 @@ const NAV = {
     { id: "LM-03", label: "Planning & load", icon: "load" },
     { id: "LB-06", label: "Stability", icon: "clock" },
     { id: "LM-04", label: "Reports", icon: "report" },
+    { id: "AD-10", label: "Address book", icon: "dispatch" },
     { id: "LB-05", label: "Approved projects", icon: "archive" },
   ],
   planner: [
-    { id: "LM-05", label: "Planning desk", icon: "kanban", badge: true },
     { id: "LM-06", label: "Station board", icon: "calendar" },
+    { id: "LM-05", label: "Planning desk", icon: "kanban", badge: true },
+    { id: "AD-10", label: "Address book", icon: "accounts" },
     { id: "LM-03", label: "Workload & load", icon: "load" },
     { id: "GL-02", label: "Profile", icon: "user" },
   ],
@@ -60,6 +62,7 @@ const NAV = {
     { id: "AD-04", label: "Users", icon: "users" },
     { id: "AD-05", label: "Groups", icon: "groups" },
     { id: "AD-07", label: "Accounts", icon: "accounts" },
+    { id: "AD-10", label: "Address book", icon: "dispatch" },
     { id: "AD-09", label: "Audit log", icon: "history" },
     { id: "AD-08", label: "Notif rules", icon: "settings" },
     { id: "GL-03", label: "Settings", icon: "settings" },
@@ -76,7 +79,7 @@ const SCREEN_TITLES = {
   "LB-01": "Dashboard", "LB-02": "Query desk", "LB-06": "Stability tracker", "LB-EVAL": "Evaluation", "LB-03": "Work in progress", "LB-05": "Approved projects",
   "LM-01": "Dashboard", "LM-02": "Lab meeting", "LM-05": "Planning desk", "LM-06": "Station board", "LM-03": "Planning & load", "LM-04": "Reports",
   "MG-01": "Command centre", "MG-02": "Brands", "MG-03": "Intelligence reports", "MG-04": "Master tracker",
-  "GL-01": "Notifications", "AD-04": "Users", "AD-05": "Groups & access", "AD-07": "Accounts",
+  "AD-10": "Ship-to address book", "GL-01": "Notifications", "AD-04": "Users", "AD-05": "Groups & access", "AD-07": "Accounts",
   "AD-08": "Notification rules", "AD-09": "Audit log", "GL-03": "Settings", "GL-02": "Profile",
 };
 

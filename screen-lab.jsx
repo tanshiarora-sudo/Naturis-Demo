@@ -30,45 +30,57 @@ function LB01_Dashboard({ nav }) {
   const inStab = reqs.filter(r => r.status === "In stability");
   const queries = reqs.filter(r => (r.queries || []).some(q => !q.resolved));
 
+  const myDesk = reqs.filter(r => r.tracker === ME_LAB);
+  const live = reqs.filter(r => WIP.includes(r.status) && r.status !== "Archived");
+  const LS = DL.LAB_LIVE_STAGES;
+  const byStage = LS.filter(s => s !== "Dispatched").map(s => ({ label: s.replace(" testing", "").replace(" / PM", "/PM"), value: reqs.filter(r => r.labStage === s).length }));
+  const byType = ["EPD", "REN", "TT", "NPD"].map(t => ({ label: t, value: live.filter(r => r.projectType === t).length }));
+  const tat = { green: live.filter(r => (r.age || 0) < 7).length, orange: live.filter(r => (r.age || 0) >= 7 && (r.age || 0) <= 10).length, red: live.filter(r => (r.age || 0) > 10).length };
+  const onTimePct = live.length ? Math.round((tat.green + tat.orange) / live.length * 100) : 100;
+  const BarChart = window.BarChart, Ring = window.Ring;
   return <div className="col gap-6">
-    <div><div className="h1">Good morning, Sumit.</div><div className="body" style={{ color: "var(--muted)", marginTop: 4 }}>{needAck.length} to acknowledge · {inEval.length} to evaluate · {wip.length} in progress.</div></div>
+    <div><div className="h1">Good morning, Sumit.</div><div className="body" style={{ color: "var(--muted)", marginTop: 4 }}>Lab at a glance — {live.length} active on the bench · {needAck.length} to acknowledge · {queries.length} open queries.</div></div>
 
-    {/* 1 — METRICS ON TOP */}
+    {/* KPI matrix */}
     <div className="grid grid-4 gap-3">
-      <Stat label="To acknowledge" value={needAck.length} attention={needAck.length > 0} sub="Seen & reviewed" onClick={() => nav("LB-02")} />
-      <Stat label="To evaluate" value={inEval.length} attention={inEval.length > 0} sub="RM / PM / slot → decide" onClick={() => nav("LB-EVAL")} />
-      <Stat label="Work in progress" value={wip.length} sub="Accepted → dispatch" onClick={() => nav("LB-03")} />
-      <Stat label="Open queries" value={queries.length} attention={queries.length > 0} sub="Back with SPOC" onClick={() => nav("LB-EVAL")} />
-      <Stat label="On the bench" value={reqs.filter(r => LAB_LIVE.includes(r.status)).length} sub="Formulation → ready" onClick={() => nav("LB-03")} />
-      <Stat label="Awaiting dispatch" value={reqs.filter(r => ["Ready for dispatch", "Dispatch awaiting SPOC approval"].includes(r.status)).length} sub="Ready / sent" onClick={() => nav("LB-03")} />
-      <Stat label="In stability" value={inStab.length} sub="3–6 mo cycle" onClick={() => nav("LB-03")} />
-      <Stat label="Dispatched" value={reqs.filter(r => ["Sent to client", "Client approved"].includes(r.status)).length} sub="This week" onClick={() => nav("LB-03")} />
+      <Stat label="Active in lab" value={live.length} sub="On the bench now" onClick={() => nav("LB-03")} />
+      <Stat label="To acknowledge" value={needAck.length} attention={needAck.length > 0} sub="New on the query desk" onClick={() => nav("LB-02")} />
+      <Stat label="To evaluate" value={inEval.length} attention={inEval.length > 0} sub="Assigned to a chemist" onClick={() => nav("LB-EVAL")} />
+      <Stat label="On-time %" value={onTimePct} suffix="%" sub="Within TAT" />
     </div>
 
-    {/* 2 — ACKNOWLEDGEMENT (gradient header, no download icon) */}
-    <div className="card" style={{ padding: 0, overflow: "hidden", boxShadow: "var(--sh-md)" }}>
-      <div className="row between" style={{ padding: "16px 20px", background: "var(--grad-coral)" }}>
-        <div className="row gap-2"><span className="h3" style={{ color: "#fff" }}>Needs your acknowledgement</span>
-          {needAck.length > 0 && <span className="pill pill-sm" style={{ background: "rgba(255,255,255,.25)", color: "#fff" }}>{needAck.length}</span>}</div>
-        <button className="btn btn-sm" style={{ background: "#fff", color: "var(--coral-dark)", fontWeight: 700 }} onClick={() => nav("LB-02")}>Open incoming</button>
-      </div>
-      <div className="col">
-        {needAck.length ? needAck.slice(0, 5).map(r => <div key={r.id} className="row between clickable" style={{ padding: "13px 20px", borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => nav("LB-02")}>
-          <div className="row gap-3">{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 12 }}>{r.id}</span><span style={{ fontWeight: 600 }}>{r.title}</span><span className="body-sm" style={{ fontSize: 12 }}>{r.brand}</span><StartDate req={r} /></div>
-          <button className="btn btn-sm" onClick={e => { e.stopPropagation(); window.NaturisStore.acknowledge(r.id, techOfReq(r)); }}><Icon name="check" size={14} /> Acknowledge</button>
-        </div>) : <div className="body-sm" style={{ padding: "20px", textAlign: "center" }}>All acknowledged — clear queue. 🎉</div>}
+    {/* charts row */}
+    <div className="grid gap-4" style={{ gridTemplateColumns: "1.5fr 1fr" }}>
+      <div className="card"><SectionTitle sub="Where the bench is right now">Live status distribution</SectionTitle>
+        {BarChart ? <BarChart data={byStage.filter(d => d.value > 0).length ? byStage : [{ label: "—", value: 0 }]} /> : null}</div>
+      <div className="card"><SectionTitle sub="Are queries within turnaround?">TAT health</SectionTitle>
+        <div className="row gap-3" style={{ alignItems: "center", justifyContent: "center", marginTop: 6 }}>
+          {Ring && <Ring value={onTimePct} size={104} color={onTimePct >= 80 ? "var(--ok)" : "var(--review-fg)"} label="on-time" />}
+        </div>
+        <div className="grid grid-3 gap-2" style={{ marginTop: 12 }}>
+          {[["Green <7d", tat.green, "var(--approved-fg)", "var(--approved-bg)"], ["Orange 7–10", tat.orange, "var(--review-fg)", "var(--review-bg)"], ["Critical >10", tat.red, "var(--coral-dark)", "var(--coral-wash)"]].map(([lb, v, fg, bg]) =>
+            <div key={lb} style={{ padding: "10px 8px", borderRadius: 10, background: bg, textAlign: "center" }}><div className="serif-num" style={{ fontSize: 22, color: fg }}>{v}</div><div className="label" style={{ fontSize: 8.5, marginTop: 2 }}>{lb}</div></div>)}
+        </div>
       </div>
     </div>
 
-    <div className="card" style={{ padding: 0 }}>
-      <div className="row between" style={{ padding: "16px 18px" }}><div className="h3">Work in progress</div><button className="btn btn-secondary btn-sm" onClick={() => nav("LB-03")}>Open</button></div>
-      {wip.length ? <ReqTable rows={wip} onOpen={r => nav("LB-03", { reqId: r.id })} cols={["id", "brand", "title", "type", "code", "status"]} />
-        : <div className="body-sm" style={{ padding: "16px 18px" }}>Nothing on the bench yet.</div>}
+    <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
+      <div className="card"><SectionTitle sub="Active projects by project type">Project-type mix</SectionTitle>
+        {BarChart ? <BarChart data={byType} /> : null}</div>
+      <div className="card"><SectionTitle sub="Your desk vs the lab">My desk load</SectionTitle>
+        <div className="row gap-3" style={{ alignItems: "center", marginTop: 8 }}>
+          {Ring && <Ring value={Math.min(100, myDesk.filter(r => WIP.includes(r.status)).length * 18 + 10)} size={92} color="var(--brand-accent)" label="load" />}
+          <div className="col gap-2" style={{ flex: 1 }}>
+            {[["My active", myDesk.filter(r => WIP.includes(r.status) && r.status !== "Archived").length], ["My queries", myDesk.filter(r => (r.queries || []).some(q => !q.resolved)).length], ["My dispatched", myDesk.filter(r => ["Sent to client", "Client approved"].includes(r.status)).length]].map(([lb, v]) =>
+              <div key={lb} className="row between" style={{ padding: "7px 10px", borderRadius: 8, background: "var(--page)" }}><span className="body-sm" style={{ fontSize: 12.5 }}>{lb}</span><span className="serif-num" style={{ fontSize: 18 }}>{v}</span></div>)}
+          </div>
+        </div>
+      </div>
     </div>
 
     <div className="card" style={{ display: "flex", gap: 14, alignItems: "center", background: "var(--brand-wash)" }}>
       <Icon name="list" size={18} color="var(--brand)" />
-      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13.5 }}>The full query desk lives in its own tab</div><div className="body-sm" style={{ fontSize: 12 }}>Every lab query — all desks, all statuses, filterable by category, brand & type.</div></div>
+      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13.5 }}>Work the queue from the Query desk</div><div className="body-sm" style={{ fontSize: 12 }}>The full list — every query, all desks, filterable. Acknowledge & track from there.</div></div>
       <button className="btn btn-sm" onClick={() => nav("LB-02")}>Open query desk <Icon name="arrowRight" size={13} /></button>
     </div>
   </div>;
@@ -121,6 +133,7 @@ function LB02_Incoming({ nav, role }) {
   const [fam, setFam] = useState("all");
   const [brand, setBrand] = useState("all");
   const [type, setType] = useState("all");
+  const [spoc, setSpoc] = useState("all");
   const [q, setQ] = useState("");
   const [full, setFull] = useState(false);
   const Popup = window.RequirementPopup;
@@ -129,26 +142,24 @@ function LB02_Incoming({ nav, role }) {
   const lab = reqs.filter(r => !["Pending review", "Returned to SPOC", "Rejected"].includes(r.status));
   const fams = ["all", ...Array.from(new Set(lab.map(r => r.categoryGroup).filter(Boolean)))];
   const brands = Array.from(new Set(lab.map(r => r.brand)));
+  const spocs = Array.from(new Set(lab.map(r => r.submittedBy)));
   const rows = window.vvipSort(lab.filter(r =>
     (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) &&
-    (type === "all" || r.projectType === type) &&
+    (type === "all" || r.projectType === type) && (spoc === "all" || r.submittedBy === spoc) &&
     (!q || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(q.toLowerCase()))));
   const needsAck = r => PRE_ACK.includes(r.status);
   const ackNoAssign = r => r.status === "Acknowledged" && !r.assigned;
   const stChip = s => <StatusPill status={s} size="sm" />;
   return <div className="col gap-4">
     <PageHead title="Query desk" sub={isLM ? "Every query in the lab. The technician acknowledges; you then assign each one to a chemist." : "Every query in the lab — all desks, all statuses. Acknowledge what's new; the lab manager assigns the chemist."} />
-    {/* filters — category, brand, type, search */}
-    <div className="row between wrap gap-3">
-      <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
-        {fams.map(f => <button key={f} onClick={() => setFam(f)} className="btn btn-sm" style={{ background: fam === f ? "var(--brand)" : "var(--surface)", color: fam === f ? "#fff" : "var(--muted)", border: fam === f ? "none" : "1px solid var(--border)" }}>{f === "all" ? "All categories" : f}</button>)}
-      </div>
-      <div className="row gap-2 wrap">
-        <select className="select" style={{ width: 140, height: 34, fontSize: 12 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="all">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
-        <select className="select" style={{ width: 120, height: 34, fontSize: 12 }} value={type} onChange={e => setType(e.target.value)}><option value="all">All types</option>{["EPD", "REN", "TT", "NPD"].map(t => <option key={t}>{t}</option>)}</select>
-        <div style={{ position: "relative", width: 200 }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={15} color="var(--muted)" /></span>
-          <input className="input" style={{ paddingLeft: 32, height: 34, fontSize: 12 }} placeholder="Search id, brand, title…" value={q} onChange={e => setQ(e.target.value)} /></div>
-      </div>
+    {/* filters — all left-aligned dropdowns + search */}
+    <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+      <div style={{ position: "relative", width: 230 }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={15} color="var(--muted)" /></span>
+        <input className="input" style={{ paddingLeft: 32, height: 34, fontSize: 12 }} placeholder="Search id, brand, title…" value={q} onChange={e => setQ(e.target.value)} /></div>
+      <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={fam} onChange={e => setFam(e.target.value)}><option value="all">All categories</option>{fams.filter(f => f !== "all").map(f => <option key={f}>{f}</option>)}</select>
+      <select className="select" style={{ width: 140, height: 34, fontSize: 12 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="all">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
+      <select className="select" style={{ width: 120, height: 34, fontSize: 12 }} value={type} onChange={e => setType(e.target.value)}><option value="all">All types</option>{["EPD", "REN", "TT", "NPD"].map(t => <option key={t}>{t}</option>)}</select>
+      <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={spoc} onChange={e => setSpoc(e.target.value)}><option value="all">All SPOCs</option>{spocs.map(s => <option key={s}>{s}</option>)}</select>
     </div>
     <div className="row between wrap gap-2">
       <div className="body-sm" style={{ fontSize: 12 }}>{rows.length} quer{rows.length !== 1 ? "ies" : "y"} · {lab.filter(needsAck).length} awaiting acknowledgement · {lab.filter(ackNoAssign).length} acknowledged, awaiting assignment</div>
@@ -166,7 +177,7 @@ function LB02_Incoming({ nav, role }) {
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-2" style={{ alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" title="VVIP" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
               <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
               <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.categoryGroup} · {r.category}</td>
@@ -300,35 +311,41 @@ function LB_Eval({ params, nav }) {
   // the evaluation form shows by default — opening a lead silently moves it to "In evaluation"
   useEffect(() => { if (req && req.status === "Acknowledged") window.NaturisStore.startEvaluation(req.id, techOfReq(req)); }, [req && req.id, req && req.status]);
   const Popup = window.RequirementPopup;
-  return <div className="col gap-5">
-    <PageHead title="Evaluation" sub="Pick a requirement tile — the evaluation form (RM / PM / slot / availability) opens straight away, then take the decision." />
-    {list.length === 0 && <div className="card" style={{ textAlign: "center", padding: 40 }}><Icon name="check" size={24} color="var(--approved-fg)" /><div className="h3" style={{ marginTop: 8 }}>Nothing to evaluate</div><div className="body-sm" style={{ marginTop: 4 }}>Acknowledge items under New requirements and they'll appear here.</div></div>}
-    {list.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(235px, 1fr))", gap: 10 }}>
-      {list.map(r => { const on = req && r.id === req.id;
-        return <button key={r.id} onClick={() => setSel(r.id)} style={{ textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "14px 16px", transition: "all .15s",
-          border: on ? "none" : "1px solid var(--border)",
-          background: on ? "var(--grad-brand)" : PT_TINT[r.projectType], color: on ? "#fff" : "var(--ink)",
-          boxShadow: on ? "0 8px 20px rgba(18,57,95,.28)" : "var(--sh-sm)" }}>
-          <div className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10.5, opacity: .85 }}>{r.id.slice(-4)}</span></div>
-          <div style={{ fontWeight: 700, fontSize: 13.5, marginTop: 6 }}><span style={{ opacity: .92 }}>{r.brand}</span> · {r.title}</div>
-          <div style={{ fontSize: 11.5, opacity: .78, marginTop: 2 }}>{r.submittedBy}</div>
-        </button>; })}
-    </div>}
-    {list.length > 0 && req && <div className="col gap-4">
-      <div className="card">
-        <div className="row between" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-          <div><div className="row gap-2" style={{ marginBottom: 6 }}>{req.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={req.projectType} showLabel /><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{req.id}</span><StatusPill status={req.status} /></div>
-            <div className="h2" style={{ fontSize: 22 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
-            <div className="body-sm">SPOC {req.submittedBy} · {(DL.LAB_DESKS[req.projectType] || {}).tech} desk</div></div>
-          <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.25)" }} onClick={() => setBriefOpen(true)}><Icon name="note" size={15} /> View initial requirement</button>
+  const [eq, setEq] = useState("");
+  const flist = list.filter(r => !eq || (r.id + " " + r.brand + " " + r.title + " " + (r.tracker || "")).toLowerCase().includes(eq.toLowerCase()));
+  return <div className="col gap-4">
+    <PageHead title="Evaluation" sub="Your assigned queries — pick one from the list; the evaluation form opens on the right, then take the decision." />
+    {list.length === 0 ? <div className="card" style={{ textAlign: "center", padding: 40 }}><Icon name="check" size={24} color="var(--approved-fg)" /><div className="h3" style={{ marginTop: 8 }}>Nothing to evaluate</div><div className="body-sm" style={{ marginTop: 4 }}>Queries appear here once the lab manager assigns them to a chemist.</div></div>
+    : <div className="grid gap-4" style={{ gridTemplateColumns: "320px 1fr", alignItems: "start" }}>
+      {/* left: searchable scrollable list — scales to many */}
+      <div className="card" style={{ padding: 0, position: "sticky", top: 12 }}>
+        <div style={{ padding: 10, borderBottom: "1px solid var(--border)" }}>
+          <div style={{ position: "relative" }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={14} color="var(--muted)" /></span>
+            <input className="input" style={{ paddingLeft: 30, height: 32, fontSize: 12 }} placeholder={"Search " + list.length + " to evaluate…"} value={eq} onChange={e => setEq(e.target.value)} /></div>
+        </div>
+        <div style={{ maxHeight: "64vh", overflowY: "auto" }}>
+          {flist.map(r => { const on = req && r.id === req.id;
+            return <button key={r.id} onClick={() => setSel(r.id)} style={{ width: "100%", textAlign: "left", cursor: "pointer", border: "none", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", padding: "10px 12px", background: on ? "var(--brand-wash)" : "transparent" }}>
+              <div className="row gap-2" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={11} color="#D97706" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>{r.id.slice(-4)}</span></div>
+              <div style={{ fontWeight: on ? 700 : 600, fontSize: 12.5, marginTop: 3, color: on ? "var(--brand)" : "var(--ink)" }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
+              <div className="body-sm" style={{ fontSize: 10.5 }}>{r.tracker || r.submittedBy} · {r.status === "In evaluation" ? "evaluating" : "to start"}</div>
+            </button>; })}
+          {!flist.length && <div className="body-sm" style={{ padding: 16, textAlign: "center" }}>No matches.</div>}
         </div>
       </div>
-      <EvaluationPanel req={req} />
-      <DecisionPanel req={req} nav={nav} />
-    </div>}
-    {recent.length > 0 && <div className="card" style={{ padding: 8 }}>
-      <div className="label" style={{ padding: "6px 8px" }}>Recently decided</div>
-      {recent.slice(0, 6).map(r => <div key={r.id} className="row between" style={{ padding: "7px 8px" }}><span className="body-sm" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span><StatusPill status={r.status} size="sm" /></div>)}
+      {/* right: detail */}
+      {req ? <div className="col gap-4">
+        <div className="card">
+          <div className="row between" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+            <div><div className="row gap-2" style={{ marginBottom: 6 }}>{req.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={req.projectType} showLabel /><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{req.id}</span><StatusPill status={req.status} /></div>
+              <div className="h2" style={{ fontSize: 22 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
+              <div className="body-sm">SPOC {req.submittedBy} · chemist {req.tracker || (DL.LAB_DESKS[req.projectType] || {}).tech}</div></div>
+            <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.25)" }} onClick={() => setBriefOpen(true)}><Icon name="note" size={15} /> View initial requirement</button>
+          </div>
+        </div>
+        <EvaluationPanel req={req} />
+        <DecisionPanel req={req} nav={nav} />
+      </div> : <div className="card"><div className="body-sm">Select a query from the list.</div></div>}
     </div>}
     {Popup && <Popup open={briefOpen} onClose={() => setBriefOpen(false)} reqId={req && req.id} />}
   </div>;
@@ -468,24 +485,25 @@ function WipDetail({ req, nav, role }) {
       </div>
     </div>
 
-    {!postApproval && <><div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
+    {!postApproval && <div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
       <SectionTitle sub="The 10 live stages the lab runs — only the lab tech updates this; sales sees it live">Live lab status</SectionTitle>
-      <div className="row gap-2 wrap">
-        {LSTAGES.map((st, si) => { const onSt = curLS === st; const doneSt = curLS && LSTAGES.indexOf(curLS) > si;
-          return <button key={st} disabled={st === "Dispatched"} title={st === "Dispatched" ? "Set automatically when the SPOC approves dispatch" : "Set live status"}
-            onClick={() => window.NaturisStore.setLabStage(req.id, st, techOfReq(req))}
-            style={{ border: onSt ? "none" : "1px solid var(--border)", cursor: st === "Dispatched" ? "not-allowed" : "pointer", borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, fontFamily: "var(--f-ui)",
-              background: onSt ? "var(--grad-brand)" : doneSt ? "var(--approved-bg)" : "var(--surface)",
-              color: onSt ? "#fff" : doneSt ? "var(--approved-fg)" : "var(--muted)" }}>
-            {doneSt ? "✓ " : ""}{st}</button>; })}
+      <div className="col" style={{ marginTop: 4 }}>
+        {LSTAGES.map((st, si) => { const curIdx = curLS ? LSTAGES.indexOf(curLS) : -1; const onSt = curLS === st; const doneSt = curIdx > si;
+          const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt;
+          return <div key={st} className="row gap-3" style={{ alignItems: "center", padding: "7px 4px", borderBottom: si < LSTAGES.length - 1 ? "1px solid var(--border)" : "none" }}>
+            <span style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+              background: onSt ? "var(--brand)" : doneSt ? "var(--approved-bg)" : "var(--page)", border: onSt ? "none" : "1px solid var(--border)" }}>
+              {doneSt ? <Icon name="check" size={12} color="var(--approved-fg)" /> : onSt ? <span style={{ width: 7, height: 7, borderRadius: 999, background: "#fff" }} /> : <span className="body-sm" style={{ fontSize: 9, color: "var(--muted)" }}>{si + 1}</span>}</span>
+            <button disabled={st === "Dispatched"} onClick={() => window.NaturisStore.setLabStage(req.id, st, techOfReq(req))}
+              title={st === "Dispatched" ? "Set when the SPOC approves dispatch" : "Mark as the current live status"}
+              style={{ border: "none", background: "transparent", cursor: st === "Dispatched" ? "not-allowed" : "pointer", padding: 0, textAlign: "left",
+                fontSize: 13, fontWeight: reached ? 700 : 500, color: onSt ? "var(--brand)" : reached ? "var(--ink)" : "var(--muted)", fontFamily: "var(--f-ui)" }}>{st}</button>
+            {onSt && <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand)", fontWeight: 700 }}>current</span>}
+            <div className="grow" />
+            {meta && <span className="body-sm" style={{ fontSize: 11, color: "var(--grey)" }}>{meta.at} · {meta.by}</span>}
+          </div>; })}
       </div>
-    </div>
-
-    <div className="card"><SectionTitle sub="One thread — advance through the bench">Stage</SectionTitle>
-      <StageStepper stages={stages} current={stages[Math.min(stageIdx, 4)]} vertical done={stageIdx} />
-      {stageIdx < 4 && <button className="btn" style={{ marginTop: 14 }} onClick={advance}><Icon name="arrowRight" size={15} /> Advance to {stages[stageIdx + 1]}</button>}
-      {stageIdx >= 4 && <div className="row gap-2" style={{ marginTop: 14 }}><span className="pill" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)" }}><Icon name="check" size={12} color="var(--approved-fg)" /> Ready — generate dispatch</span></div>}
-    </div></>}
+    </div>}
     {showDispatch && <DispatchPanel req={req} />}
     {postApproval && <PostApproval req={req} />}
     {["Client approved", "In stability", "Archived"].includes(req.status) && window.PrePOChecklist && <window.PrePOChecklist req={req} role="lab" />}

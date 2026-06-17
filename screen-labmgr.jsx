@@ -69,9 +69,9 @@ function LM01_Dashboard({ nav }) {
     </div>
 
     <div className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
-      <div className="card" style={{ padding: 0 }}>
-        <div className="row between" style={{ padding: "16px 18px" }}><div className="h3">Lab meeting / oversight</div><button className="btn btn-sm" onClick={() => nav("LM-02")}><Icon name="calendar" size={14} /> Open oversight</button></div>
-        <ReqTable rows={[...b.toAck, ...b.inEval, ...b.accepted]} onOpen={r => nav("LM-02")} cols={["id", "brand", "title", "type", "status", "age"]} />
+      <div className="card"><div className="row between" style={{ marginBottom: 12 }}><div className="h3">Pipeline by stage</div><button className="btn btn-sm" onClick={() => nav("LM-02")}><Icon name="calendar" size={14} /> Open lab meeting</button></div>
+        <div className="col gap-2">{[["To acknowledge", b.toAck.length], ["In evaluation", b.inEval.length], ["Accepted", b.accepted.length], ["On bench", b.onBench.length], ["Awaiting dispatch", b.awaitingDispatch.length], ["In stability", b.inStab.length]].map(([lb, v]) => { const max = Math.max(b.toAck.length, b.inEval.length, b.accepted.length, b.onBench.length, b.awaitingDispatch.length, b.inStab.length, 1);
+          return <div key={lb} className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ width: 130, fontSize: 12 }}>{lb}</span><div className="bar-track" style={{ flex: 1, height: 12 }}><div className="bar-fill" style={{ width: (v / max * 100) + "%" }} /></div><span className="mono" style={{ fontSize: 12, fontWeight: 700, width: 22, textAlign: "right" }}>{v}</span></div>; })}</div>
       </div>
       <div className="card" style={{ borderTop: "3px solid var(--coral)" }}><SectionTitle>Needs oversight</SectionTitle>
         <div className="col gap-2">{escalations.length ? escalations.slice(0, 6).map(r => <div key={r.id} className="row between clickable" style={{ padding: "9px 11px", borderRadius: 8, background: "var(--page)", cursor: "pointer" }} onClick={() => nav("LB-03", { reqId: r.id })}>
@@ -113,7 +113,9 @@ function LM02_Oversight({ nav }) {
   window.useStore();
   const [view, setView] = useState("stage");
   const [phase, setPhase] = useState("all");
+  const [q, setQ] = useState("");
   const reqs = DLM.REQUIREMENTS;
+  const srch = r => !q || (r.id + " " + r.brand + " " + r.title + " " + (r.tracker || "")).toLowerCase().includes(q.toLowerCase());
   const b = labBuckets(reqs);
   const PHASES = [
     ["toAck", "To acknowledge", b.toAck, "var(--review-bg)", "var(--review-fg)", "incoming"],
@@ -152,6 +154,11 @@ function LM02_Oversight({ nav }) {
       actions={<div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10 }}>
         {[["stage", "By stage"], ["tech", "By technician"]].map(([v, l]) => <button key={v} onClick={() => setView(v)} className="btn btn-sm" style={{ background: view === v ? "var(--surface)" : "transparent", color: view === v ? "var(--brand)" : "var(--muted)", boxShadow: view === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
       </div>} />
+    <div className="row between wrap gap-2">
+      <div style={{ position: "relative", width: 280 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span>
+        <input className="input" style={{ paddingLeft: 36 }} placeholder="Search across the lab meeting…" value={q} onChange={e => setQ(e.target.value)} /></div>
+      <button className="btn btn-secondary btn-sm" onClick={() => { const rows = window.vvipSort(allItems).filter(srch); const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; const csv = ["Req,Brand,Title,Type,Status,Chemist,Live stage"].concat(rows.map(r => [r.id, r.brand, r.title, r.projectType, r.status, r.tracker || "", r.labStage || ""].map(esc).join(","))).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" })); a.download = "lab-meeting.csv"; a.click(); URL.revokeObjectURL(a.href); }}><Icon name="download" size={14} /> Export</button>
+    </div>
     {/* lab-owned flags — the Lab Manager's flag queue */}
     {labFlags.length > 0 && <div className="card" style={{ border: "1px solid var(--coral)", padding: 0, overflow: "hidden" }}>
       <div className="row between" style={{ padding: "12px 18px", background: "var(--coral-wash)", borderBottom: "1px solid var(--border)" }}>
@@ -174,10 +181,10 @@ function LM02_Oversight({ nav }) {
           </button>; })}
       </div>
       {shown.length ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-        {window.vvipSort(shown).map(Tile)}
+        {window.vvipSort(shown).filter(srch).map(Tile)}
       </div> : <div className="card" style={{ textAlign: "center", padding: 32 }}><div className="body-sm">Nothing in this stage right now.</div></div>}
     </> : <div className="col gap-4">
-      {techs.map(tech => { const items = window.vvipSort(allItems.filter(r => techOf(r) === tech));
+      {techs.map(tech => { const items = window.vvipSort(allItems.filter(r => techOf(r) === tech).filter(srch));
         const deskCode = Object.keys(DLM.LAB_DESKS).find(k => DLM.LAB_DESKS[k].tech === tech);
         return <div key={tech} className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div className="row between" style={{ padding: "14px 18px", background: "linear-gradient(120deg, var(--brand-wash) 0%, var(--surface) 70%)", borderBottom: "1px solid var(--border)" }}>
@@ -297,6 +304,8 @@ function LM05_Planning({ nav }) {
   const booked = reqs.filter(r => ((r.evaluation || {}).slot || "").includes("Station"));
   const [sel, setSel] = useState(queue[0] ? queue[0].id : null);
   const [slotSel, setSlotSel] = useState(null);
+  const [pq, setPq] = useState("");
+  const fqueue = queue.filter(r => !pq || (r.id + " " + r.brand + " " + r.title + " " + techOf(r)).toLowerCase().includes(pq.toLowerCase()));
   const req = sel && reqs.find(r => r.id === sel);
   function book() {
     if (!req || !slotSel) return;
@@ -308,14 +317,20 @@ function LM05_Planning({ nav }) {
     <PageHead title="Planning desk" sub="Asha & Vikram · centralised station allocation at the lab meeting — 8 stations, 3–4 products per station per day, FIFO with VVIP priority." />
     <div className="grid gap-4" style={{ gridTemplateColumns: "330px 1fr", alignItems: "start" }}>
       <div className="col gap-3">
-        <div className="card" style={{ padding: 8 }}>
-          <div className="label" style={{ padding: "6px 8px" }}>Awaiting a slot ({queue.length}) · VVIP first, then FIFO</div>
-          {queue.length ? queue.map(r => { const on = r.id === sel;
-            return <button key={r.id} onClick={() => setSel(r.id)} style={{ width: "100%", textAlign: "left", padding: 10, borderRadius: 8, border: "none", marginBottom: 2, cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10.5 }}>{r.id.slice(-4)}</span></div>
-              <div style={{ fontSize: 13, fontWeight: on ? 700 : 500, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
-              <div className="body-sm" style={{ fontSize: 11 }}>{techOf(r)} · {r.status}</div>
-            </button>; }) : <div className="body-sm" style={{ padding: "4px 8px" }}>Everything has a slot. 🎉</div>}
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: 10, borderBottom: "1px solid var(--border)" }}>
+            <div className="label" style={{ marginBottom: 6 }}>Awaiting a slot ({queue.length}) · VVIP first, then FIFO</div>
+            <div style={{ position: "relative" }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={14} color="var(--muted)" /></span>
+              <input className="input" style={{ paddingLeft: 30, height: 32, fontSize: 12 }} placeholder="Search the queue…" value={pq} onChange={e => setPq(e.target.value)} /></div>
+          </div>
+          <div style={{ maxHeight: "46vh", overflowY: "auto" }}>
+            {fqueue.length ? fqueue.map(r => { const on = r.id === sel;
+              return <button key={r.id} onClick={() => setSel(r.id)} style={{ width: "100%", textAlign: "left", padding: "9px 12px", border: "none", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
+                <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>{r.vvip && <Icon name="star" size={11} color="#D97706" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10 }}>{r.id.slice(-4)}</span></div>
+                <div style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
+                <div className="body-sm" style={{ fontSize: 10.5 }}>{techOf(r)} · {r.status}</div>
+              </button>; }) : <div className="body-sm" style={{ padding: 16, textAlign: "center" }}>{queue.length ? "No matches." : "Everything has a slot. 🎉"}</div>}
+          </div>
         </div>
         <div className="card" style={{ padding: 8 }}>
           <div className="label" style={{ padding: "6px 8px" }}>Booked ({booked.length})</div>
