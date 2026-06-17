@@ -122,7 +122,9 @@ function LB02_Incoming({ nav, role }) {
   const [brand, setBrand] = useState("all");
   const [type, setType] = useState("all");
   const [q, setQ] = useState("");
+  const [full, setFull] = useState(false);
   const Popup = window.RequirementPopup;
+  const tatZone = days => days < 7 ? ["var(--approved-bg)", "var(--approved-fg)", "green"] : days <= 10 ? ["var(--review-bg)", "var(--review-fg)", "orange"] : ["var(--coral-wash)", "var(--coral-dark)", "critical"];
   // every query that has reached the lab (excludes those still with sales)
   const lab = reqs.filter(r => !["Pending review", "Returned to SPOC", "Rejected"].includes(r.status));
   const fams = ["all", ...Array.from(new Set(lab.map(r => r.categoryGroup).filter(Boolean)))];
@@ -148,12 +150,18 @@ function LB02_Incoming({ nav, role }) {
           <input className="input" style={{ paddingLeft: 32, height: 34, fontSize: 12 }} placeholder="Search id, brand, title…" value={q} onChange={e => setQ(e.target.value)} /></div>
       </div>
     </div>
-    <div className="body-sm" style={{ fontSize: 12 }}>{rows.length} quer{rows.length !== 1 ? "ies" : "y"} · {lab.filter(needsAck).length} awaiting acknowledgement · {lab.filter(ackNoAssign).length} acknowledged, awaiting assignment</div>
+    <div className="row between wrap gap-2">
+      <div className="body-sm" style={{ fontSize: 12 }}>{rows.length} quer{rows.length !== 1 ? "ies" : "y"} · {lab.filter(needsAck).length} awaiting acknowledgement · {lab.filter(ackNoAssign).length} acknowledged, awaiting assignment</div>
+      <div className="row gap-3" style={{ alignItems: "center" }}>
+        <span className="label" style={{ fontSize: 8.5 }}>Last updated · just now</span>
+        <button className="btn btn-sm btn-secondary" onClick={() => setFull(f => !f)}>{full ? "Compact columns" : "Full columns"}</button>
+      </div>
+    </div>
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ overflowX: "auto", maxHeight: "66vh", overflowY: "auto" }}>
-        <table className="tbl" style={{ minWidth: 1080 }}>
+        <table className="tbl" style={{ minWidth: full ? 1560 : 1180 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
-            <tr>{["Req ID", "Brand", "Title", "Category", "Type", "Code", "Status", "Chemist", "Action"].map(h =>
+            <tr>{["Req ID", "Brand", "Title", "Category", "Type", "Code", "Status", "Responsible", "Sales POC", ...(full ? ["Requested", "Target dispatch"] : []), "TAT", ...(full ? ["Remarks"] : []), "Action"].map(h =>
               <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "9px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr>
           </thead>
           <tbody>
@@ -166,6 +174,11 @@ function LB02_Incoming({ nav, role }) {
               <td style={{ padding: "8px 12px" }}><span className="mono" style={{ fontSize: 11 }}>{r.currentNcl || "—"}</span></td>
               <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{stChip(r.status)}{r.labStage ? <span className="body-sm" style={{ fontSize: 10, display: "block", color: "var(--brand)", marginTop: 2 }}>{r.labStage}</span> : null}</td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.tracker || <span style={{ color: "var(--muted)" }}>—</span>}</td>
+              <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.submittedBy}</td>
+              {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{(r.submittedAt || "—").replace(" 2026", "")}</td>}
+              {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{(r.targetSampleDate || "—").replace(" 2026", "")}</td>}
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{["Archived", "Client approved", "Rejected"].includes(r.status) ? <span className="body-sm">—</span> : (() => { const z = tatZone(r.age || 0); return <span className="pill pill-sm" style={{ background: z[0], color: z[1], fontWeight: 700 }} title={(r.age || 0) + " days in pipeline"}>{z[2]}</span>; })()}</td>
+              {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(r.briefDetail || {}).notes || "—"}</td>}
               <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
                 <span className="row gap-2" style={{ alignItems: "center" }}>
                   <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "brief" })} title="View initial requirement"><Icon name="note" size={12} /></button>
@@ -177,7 +190,7 @@ function LB02_Incoming({ nav, role }) {
                 </span>
               </td>
             </tr>)}
-            {!rows.length && <tr><td colSpan={9} style={{ padding: 34, textAlign: "center" }}><span className="body-sm">No queries match these filters.</span></td></tr>}
+            {!rows.length && <tr><td colSpan={full ? 13 : 10} style={{ padding: 34, textAlign: "center" }}><span className="body-sm">No queries match these filters.</span></td></tr>}
           </tbody>
         </table>
       </div>
@@ -328,6 +341,10 @@ function DispatchPanel({ req }) {
   const [photos, setPhotos] = useState([]); const [generated, setGenerated] = useState(false);
   const [note, setNote] = useState("");
   const [docket, setDocket] = useState("");
+  const [sentTo, setSentTo] = useState((req.briefDetail || {}).shipName || "");
+  const [pcs, setPcs] = useState("2");
+  const [courier, setCourier] = useState("DTDC");
+  const [purpose, setPurpose] = useState("Samples as per request for evaluation");
   const [mktBrief, setMktBrief] = useState(false);
   const [ingList, setIngList] = useState(false);
   const flow = req.status === "Sent to client" || POST.includes(req.status) ? "Sent" : req.status === "Dispatch awaiting SPOC approval" ? "Awaiting SPOC approval" : "Drafted";
@@ -353,8 +370,13 @@ function DispatchPanel({ req }) {
       : <div className="col gap-2">
         <Field label="Dispatch note to SPOC" hint="Auto-generated draft — add anything custom (batch quirks, handling, what to check)">
           <textarea className="textarea" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. Slight colour shift vs v1 — intentional, from the new antioxidant. Store below 25°C." style={{ minHeight: 64 }} /></Field>
-        <Field label="Courier docket no." hint="From the courier slip — lands on the timeline & the master tracker">
-          <input className="input mono" style={{ maxWidth: 260 }} value={docket} onChange={e => setDocket(e.target.value)} placeholder="e.g. DTDC-884521" /></Field>
+        <div className="grid grid-2 gap-3">
+          <Field label="Sent to (contact person)"><input className="input" value={sentTo} onChange={e => setSentTo(e.target.value)} placeholder="e.g. Kavya Menon" /></Field>
+          <Field label="Pieces"><input className="input" value={pcs} onChange={e => setPcs(e.target.value)} placeholder="e.g. 2" /></Field>
+          <Field label="Courier partner"><input className="input" value={courier} onChange={e => setCourier(e.target.value)} placeholder="DTDC / Blue Dart / By hand" /></Field>
+          <Field label="Courier docket no."><input className="input mono" value={docket} onChange={e => setDocket(e.target.value)} placeholder="e.g. DTDC-884521" /></Field>
+        </div>
+        <Field label="Purpose of dispatch"><input className="input" value={purpose} onChange={e => setPurpose(e.target.value)} /></Field>
         <div className="grid grid-2 gap-3">
           {[["Marketing brief", mktBrief, () => setMktBrief(v => !v)], ["Ingredient list", ingList, () => setIngList(v => !v)]].map(([lbl, on, toggle]) =>
             <div key={lbl} onClick={toggle} style={{ border: "2px dashed " + (on ? "var(--border)" : "var(--brand-light)"), borderRadius: 10, padding: 14, textAlign: "center", cursor: "pointer" }}>
@@ -364,7 +386,7 @@ function DispatchPanel({ req }) {
         </div>
         <div className="row gap-2">
           <button className={"btn " + (generated ? "btn-secondary" : "")} onClick={() => setGenerated(true)}><Icon name="note" size={15} /> {generated ? "Note generated ✓" : "Generate dispatch note"}</button>
-          <button className="btn" disabled={!generated || photos.length < 1 || !addr} onClick={() => window.NaturisStore.dispatch(req.id, { photos: photos.length, note: true, noteText: note.trim(), docket: docket.trim(), marketingBrief: mktBrief, ingredientList: ingList }, techOfReq(req))}><Icon name="dispatch" size={15} /> Mark dispatched → SPOC approval</button>
+          <button className="btn" disabled={!generated || photos.length < 1 || !addr} onClick={() => window.NaturisStore.dispatch(req.id, { photos: photos.length, note: true, noteText: note.trim(), docket: docket.trim(), sentTo: sentTo.trim(), pcs: pcs.trim(), courier: courier.trim(), purpose: purpose.trim(), marketingBrief: mktBrief, ingredientList: ingList }, techOfReq(req))}><Icon name="dispatch" size={15} /> Mark dispatched → SPOC approval</button>
         </div>
       </div>}
   </div>;
@@ -425,6 +447,7 @@ function WipDetail({ req, nav, role }) {
         </div>
         <div className="row gap-2">
           {window.FullBriefButton && <window.FullBriefButton req={req} />}
+          <ProductBriefButton req={req} />
           <button className="btn btn-secondary btn-sm" onClick={() => setFlagOpen(true)}><Icon name="flag" size={14} /> Flag</button>
           {["Sent to client", "Rejected"].includes(req.status) && <button className="btn btn-secondary btn-sm" onClick={() => window.NaturisStore.newIteration(req.id, "Reformulated per client feedback", techOfReq(req))}><Icon name="plus" size={14} /> Iteration</button>}
         </div>
@@ -551,25 +574,137 @@ function LB05_Approved() {
   const rows = done.filter(r => { const dd = parse(r.dispatchedOn); if (!dd) return !from && !to;
     if (from && dd < Date.parse(from)) return false; if (to && dd > Date.parse(to) + 86399000) return false; return true; });
   return <div className="col gap-5">
-    <PageHead title="Dispatch history" sub="Every dispatch, past and current — filter any date range (the 7-year sheet, digitised)."
+    <PageHead title="Dispatch record" sub="Every dispatch, past and current — filter any date range. QC intimation, stability start & approval are editable inline."
       actions={<div className="row gap-2" style={{ alignItems: "center" }}>
         <span className="label" style={{ fontSize: 9 }}>From</span><input className="input" type="date" style={{ width: 150, height: 34 }} value={from} onChange={e => setFrom(e.target.value)} />
         <span className="label" style={{ fontSize: 9 }}>To</span><input className="input" type="date" style={{ width: 150, height: 34 }} value={to} onChange={e => setTo(e.target.value)} />
         {(from || to) && <button className="btn btn-ghost btn-sm" onClick={() => { setFrom(""); setTo(""); }}>Clear</button>}
       </div>} />
-    <div className="card" style={{ padding: 0 }}>
-      {rows.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Project</Th><Th>Units</Th><Th>Packaging</Th><Th>Dispatched on</Th><Th>Docket</Th><Th>Status</Th></tr></thead>
-        <tbody>{window.vvipSort(rows).map(r => <tr key={r.id} className="clickable" onClick={() => {}}>
-          <Td mono><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.id}</span></Td>
-          <Td><b>{r.brand}</b></Td><Td>{r.title}</Td><Td mono>{r.moq}</Td><Td>{r.packaging}</Td>
-          <Td mono>{(r.dispatchedOn || "—").replace(" 2026", "")}</Td>
-          <Td mono>{(r.dispatch && r.dispatch.docket) || ("DTDC-88" + (4200 + (parseInt(r.id.slice(-3)) || 0)))}</Td>
-          <Td><StatusPill status={r.status} size="sm" /></Td></tr>)}</tbody></table></div>
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      {rows.length ? <div style={{ overflowX: "auto", maxHeight: "70vh", overflowY: "auto" }}><table className="tbl" style={{ minWidth: 1700 }}>
+        <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["S.No", "Product", "Client", "Sent to", "Code", "Pcs", "Qty", "Dispatched", "Purpose", "Docket", "Courier", "Intimation to QC", "Stability start", "Approval"].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+        <tbody>{window.vvipSort(rows).map((r, i) => { const dp = r.dispatch || {}; const set = (k, v) => window.NaturisStore.setDispatchField(r.id, k, v, techOfReq(r));
+          return <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
+            <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
+            <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.title}</span></td>
+            <td style={{ padding: "6px 10px", fontSize: 12, whiteSpace: "nowrap" }}><b>{r.brand}</b></td>
+            <td style={{ padding: "6px 10px", fontSize: 11.5, whiteSpace: "nowrap" }}>{dp.sentTo || ((r.briefDetail || {}).shipName) || (r.brand + " · " + (r.submittedBy || ""))}</td>
+            <td style={{ padding: "6px 10px" }}><span className="mono" style={{ fontSize: 11 }}>{r.currentNcl || "—"}</span></td>
+            <td style={{ padding: "6px 10px", fontSize: 11.5 }}>{dp.pcs || 2}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.moq}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{(r.dispatchedOn || "—").replace(" 2026", "")}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)", maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dp.purpose || "Samples as per request for evaluation"}</td>
+            <td style={{ padding: "6px 10px" }}><span className="mono" style={{ fontSize: 10.5 }}>{dp.docket || ("DTDC-88" + (4200 + (parseInt(r.id.slice(-3)) || 0)))}</span></td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{dp.courier || (dp.docket && dp.docket.indexOf("Z") === 0 ? "Blue Dart" : "DTDC")}</td>
+            <td style={{ padding: "4px 8px" }}><select className="select" style={{ height: 28, fontSize: 11, width: 90 }} value={dp.qcIntimation || "No"} onChange={e => set("qcIntimation", e.target.value)}><option>No</option><option>Yes</option></select></td>
+            <td style={{ padding: "4px 8px" }}><input className="input" type="date" style={{ height: 28, fontSize: 11, width: 130 }} value={dp.stabilityStart || ""} onChange={e => set("stabilityStart", e.target.value)} /></td>
+            <td style={{ padding: "4px 8px" }}><select className="select" style={{ height: 28, fontSize: 11, width: 120 }} value={dp.approvalStatus || (["Client approved", "In stability", "Archived"].includes(r.status) ? "Approved" : "Pending")} onChange={e => set("approvalStatus", e.target.value)}><option>Pending</option><option>Approved</option><option>Rejected</option><option>Rework</option></select></td>
+          </tr>; })}</tbody></table></div>
         : <div style={{ textAlign: "center", padding: 36 }}><Icon name="search" size={20} color="var(--brand-light)" /><div className="body-sm" style={{ marginTop: 6 }}>No dispatches in this date range.</div></div>}
     </div>
   </div>;
 }
 
+/* ====================================================================
+   PRODUCT BRIEF — client-ready spec sheet (Mr. DIY catalog format)
+   ==================================================================== */
+function ProductBriefPopup({ open, onClose, reqId }) {
+  window.useStore();
+  const r = reqId ? window.NaturisStore.get(reqId) : null;
+  if (!open || !r) return null;
+  const bd = r.briefDetail || {};
+  const sen = r.sensory || {};
+  const _seen = {}; const actives = [...(r.nonNegotiable || []), ...(r.goodToHave || []), ...(r.actives || [])].filter(a => { if (!a || !a.ingredient || _seen[a.ingredient]) return false; _seen[a.ingredient] = 1; return true; });
+  const keyActive = actives[0] ? (actives[0].ingredient + (actives[0].concentration ? " (" + actives[0].concentration + ")" : "")) : "Per formulation";
+  const famSkin = { "Skin Care": "Normal to Dull Skin", "Hair Care": "All Hair Types", "Sun Care": "All Skin Types", "Body Care": "All Skin Types", "Colour": "All Skin Types" }[r.categoryGroup] || "All Skin Types";
+  const rows = [
+    ["Core Function", r.category],
+    ["Texture", sen.texture || r.category],
+    ["Skin Type", famSkin],
+    ["Key Active", keyActive],
+    ["pH Range", r.categoryGroup === "Hair Care" ? "4.50 – 5.50" : "5.50 – 6.50"],
+    ["Pack Size", bd.fillVol || r.packaging || "—"],
+    ["Packaging", bd.packSize || r.packaging || "Tube"],
+    ["Mineral Oil Free", "Yes"], ["Silicone Free", "Yes"],
+  ];
+  const benefits = [];
+  (r.claims || []).forEach(c => benefits.push(c));
+  actives.slice(0, 4).forEach(a => benefits.push(a.ingredient + (a.concentration ? " (" + a.concentration + ")" : "") + " — targeted active in this formulation"));
+  if (!benefits.length) benefits.push("Clean, breathable formulation — mineral-oil and silicone free");
+  return <>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", zIndex: 95 }} />
+    <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(720px, 94vw)", maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", borderRadius: 16, boxShadow: "0 24px 64px rgba(15,23,42,.3)", zIndex: 96 }}>
+      <div style={{ padding: "20px 28px", borderBottom: "2px solid var(--brand)" }}>
+        <div className="row between"><NaturisLogo size={16} /><button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={16} /></button></div>
+        <div className="body-sm" style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>| Product Brief — {r.brand} | 2026</div>
+        <div style={{ marginTop: 14, background: "var(--brand)", color: "#fff", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, textTransform: "uppercase", letterSpacing: ".04em" }}>{r.categoryGroup} — {r.category}</div>
+      </div>
+      <div style={{ padding: "20px 28px" }}>
+        <div className="row gap-2" style={{ alignItems: "baseline" }}><span className="mono" style={{ color: "var(--brand-mid)", fontWeight: 700, fontSize: 14 }}>{r.currentNcl || r.aiCode || r.id}</span><span className="h2" style={{ fontSize: 22 }}>| {r.title}</span></div>
+        <div className="body-sm" style={{ fontStyle: "italic", color: "var(--brand-accent)", marginTop: 2 }}>{r.category} · {sen.fragrance || "signature"} · crafted for {r.brand}</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 18 }}>
+          <tbody>{rows.map(([k, v], i) => <tr key={k} style={{ background: i % 2 ? "var(--page)" : "var(--surface)" }}>
+            <td style={{ padding: "9px 14px", fontWeight: 700, fontSize: 12.5, width: 200, borderBottom: "1px solid var(--border)" }}>{k}</td>
+            <td style={{ padding: "9px 14px", fontSize: 12.5, borderBottom: "1px solid var(--border)" }}>{v}</td>
+          </tr>)}</tbody>
+        </table>
+        <div className="h3" style={{ color: "var(--brand)", marginTop: 22, marginBottom: 10 }}>Key Benefits</div>
+        <div className="col gap-2">{benefits.map((b, i) => <div key={i} className="row gap-2" style={{ alignItems: "flex-start" }}><Icon name="check" size={14} color="var(--approved-fg)" style={{ marginTop: 2, flexShrink: 0 }} /><span className="body-sm" style={{ fontSize: 12.5 }}>{b}</span></div>)}</div>
+        <div className="body-sm" style={{ fontSize: 10, color: "var(--grey)", marginTop: 24, paddingTop: 12, borderTop: "1px solid var(--border)", textAlign: "center" }}>Confidential — For Trade Reference Only · Naturis Cosmetics Pvt. Ltd. · info@naturiscosmetics.in</div>
+      </div>
+    </div>
+  </>;
+}
+function ProductBriefButton({ req }) {
+  const [open, setOpen] = useState(false);
+  return <><button className="btn btn-secondary btn-sm" onClick={() => setOpen(true)}><Icon name="note" size={13} /> Product brief</button>
+    <ProductBriefPopup open={open} onClose={() => setOpen(false)} reqId={req.id} /></>;
+}
+
+/* ====================================================================
+   LB-06 · STABILITY TRACKER (6-month log — matches the stability sheet)
+   ==================================================================== */
+function LB06_Stability({ nav }) {
+  window.useStore();
+  const D = window.NaturisData;
+  const now = new Date();
+  const parseDMY = s => { const p = (s || "").split("-"); return p.length === 3 ? new Date(+p[2], +p[1] - 1, +p[0]) : null; };
+  // live in-stability requirements first, then the seeded historical log
+  const live = D.REQUIREMENTS.filter(r => r.status === "In stability").map((r, i) => {
+    const st = r.stability || {}; const cat = D.fitCategory ? D.fitCategory(D.fitFinal ? D.fitFinal(D.FIT_SCORES[(D.ACCOUNTS.find(a => a.name === r.brand) || {}).id] || {}) : 6) : { label: "" };
+    return { sno: "L" + (i + 1), charged: (r.dispatchedOn || "—").replace(" 2026", ""), product: r.title, batch: r.currentNcl || r.id, mfg: "—", initial: (r.dispatchedOn || "—").replace(" 2026", ""), m: ["", "", "", "", "", ""], done: st.month || 1, location: "NC/RD/live", client: r.brand, type: (st.months || 3) + "-mo", grade: (cat && cat.label || "—").replace(" fit", ""), condition: "RT + 40/75°C", live: true };
+  });
+  const rows = [...live, ...(D.STABILITY_RUNS || [])];
+  return <div className="col gap-4">
+    <PageHead title="Stability tracker" sub="6-month shelf-life log · RT + 40/75°C accelerated. Green = pull completed; live in-stability projects are pinned on top."
+      actions={<button className="btn btn-secondary btn-sm"><Icon name="download" size={14} /> Export</button>} />
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto", maxHeight: "72vh", overflowY: "auto" }}>
+        <table className="tbl" style={{ minWidth: 1700 }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["S.No", "Charged", "Product", "Batch No", "MFG", "Initial", "M1", "M2", "M3", "M4", "M5", "M6", "Location", "Client", "Type", "Grade", "Condition"].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+          <tbody>{rows.map(r => <tr key={r.sno} style={{ borderBottom: "1px solid var(--border)", background: r.live ? "var(--brand-wash)" : undefined }}>
+            <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)" }}>{r.sno}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.charged}</td>
+            <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{r.product}</td>
+            <td style={{ padding: "6px 10px" }}><span className="mono" style={{ fontSize: 10.5 }}>{r.batch}</span></td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.mfg}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.initial}</td>
+            {[0, 1, 2, 3, 4, 5].map(k => { const done = k < r.done; const dt = (r.m || [])[k];
+              return <td key={k} style={{ padding: "6px 8px", fontSize: 10, whiteSpace: "nowrap", textAlign: "center", background: done ? "var(--approved-bg)" : "var(--page)", color: done ? "var(--approved-fg)" : "var(--border-strong)", fontWeight: done ? 700 : 400 }}>{done ? (dt || "✓") : (dt || "—")}</td>; })}
+            <td style={{ padding: "6px 10px", fontSize: 10.5, whiteSpace: "nowrap" }}><span className="mono">{r.location}</span></td>
+            <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{r.client}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.type}</td>
+            <td style={{ padding: "6px 10px" }}><span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)", fontWeight: 700 }}>{r.grade}</span></td>
+            <td style={{ padding: "6px 10px", fontSize: 10.5, whiteSpace: "nowrap" }}>{r.condition}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>;
+}
+
+Object.assign(window, { ProductBriefButton, ProductBriefPopup });
 Object.assign(window.SCREENS, {
+  "LB-06": LB06_Stability,
   "LB-01": LB01_Dashboard, "LB-02": LB02_Incoming, "LB-EVAL": LB_Eval, "LB-03": LB03_Live, "LB-05": LB05_Approved,
 });

@@ -133,6 +133,28 @@ function AD07_Accounts() {
         </div>
       </div>
     </div>
+    {/* ship-to address book — the dispatch directory (12 Jun lab sheets) */}
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="row between" style={{ padding: "16px 18px" }}>
+        <div><div className="h3">Ship-to address book</div><div className="body-sm" style={{ fontSize: 12 }}>Dispatch directory · "From" is always the Naturis lab. Green = active, red = discarded.</div></div>
+        <button className="btn btn-secondary btn-sm"><Icon name="plus" size={14} /> Add address</button>
+      </div>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", padding: "0 16px 16px" }}>
+        {(DA.SHIP_ADDRESSES || []).map((s, i) => <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", opacity: s.status === "discarded" ? .6 : 1 }}>
+          <div className="row between" style={{ padding: "8px 12px", background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)" }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)" }}>{s.client}</span>
+            <span className="pill pill-sm" style={{ background: "var(--surface)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize" }}>{s.status}</span>
+          </div>
+          <div style={{ padding: "10px 12px" }}>
+            <div className="label" style={{ fontSize: 8 }}>To</div>
+            <div className="body-sm" style={{ fontSize: 12, fontWeight: 600 }}>{s.contact}</div>
+            {s.to.map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)", textDecoration: s.status === "discarded" ? "line-through" : "none" }}>{ln}</div>)}
+            <div className="label" style={{ fontSize: 8, marginTop: 8 }}>From</div>
+            {(DA.NATURIS_LAB_ADDR || []).map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 10.5, color: "var(--grey)" }}>{ln}</div>)}
+          </div>
+        </div>)}
+      </div>
+    </div>
   </div>;
 }
 

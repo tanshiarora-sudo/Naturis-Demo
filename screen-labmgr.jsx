@@ -336,7 +336,60 @@ function LM05_Planning({ nav }) {
   </div>;
 }
 
+/* ====================================================================
+   LM-06 · STATION BOARD (daily grid — matches the lab planning sheet)
+   ==================================================================== */
+function LM06_StationBoard({ nav }) {
+  window.useStore();
+  const D = window.NaturisData;
+  const reqs = D.REQUIREMENTS;
+  const OPS = D.STATION_OPERATORS;
+  const STN = ["Emulsion / cream", "Gel / serum", "SPF / hybrid", "Cleanser / wash", "Oil / balm", "Mask / leave-on", "Colour / lip", "Hair / scalp"];
+  // upcoming working days
+  const days = (function () {
+    var arr = [], dt = new Date(), added = 0;
+    while (added < 4) { var dow = dt.getDay(); if (dow !== 0 && dow !== 6) { arr.push(new Date(dt)); added++; } dt.setDate(dt.getDate() + 1); }
+    return arr;
+  })();
+  const [dayIdx, setDayIdx] = useState(0);
+  const fmt = d => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+  const bench = window.vvipSort(reqs.filter(r => ["Accepted — date committed", "Formulation", "Trial", "QC", "Fill"].includes(r.status)));
+  // deterministic fill: rotate by day so each day shows a different arrangement
+  const board = {};
+  bench.forEach(function (r, k) { var st = (k + dayIdx) % 8; (board[st] = board[st] || []); if (board[st].length < 4) board[st].push(r); });
+  return <div className="col gap-5">
+    <PageHead title="Station board" sub="Daily allocation across the 8 stations — 3–4 products per station. Booked by the Lab Planner at the lab meeting."
+      actions={<div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10 }}>
+        {days.map((d, di) => <button key={di} onClick={() => setDayIdx(di)} className="btn btn-sm" style={{ background: dayIdx === di ? "#fff" : "transparent", color: dayIdx === di ? "var(--brand)" : "var(--muted)", boxShadow: dayIdx === di ? "var(--sh-sm)" : "none", border: "none" }}>{di === 0 ? "Today" : fmt(d).split(",")[0]}</button>)}
+      </div>} />
+    <div style={{ padding: "10px 16px", borderRadius: 10, background: "var(--grad-coral)", color: "#fff", fontWeight: 700 }}>{fmt(days[dayIdx])}{dayIdx === 0 ? " · TODAY" : ""}</div>
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table className="tbl" style={{ minWidth: 1500, borderCollapse: "collapse" }}>
+          <thead><tr>{STN.map((kind, s) => <th key={s} style={{ background: "var(--brand)", color: "#fff", padding: "8px 10px", textAlign: "left", borderRight: "1px solid rgba(255,255,255,.15)", minWidth: 175 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800 }}>Station {s + 1}</div>
+            <div style={{ fontSize: 10, opacity: .85 }}>{kind} · {OPS[s]}</div></th>)}</tr></thead>
+          <tbody>
+            {[0, 1, 2, 3].map(slot => <tr key={slot}>
+              {STN.map((kind, s) => { const item = (board[s] || [])[slot];
+                return <td key={s} style={{ padding: "8px 10px", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", verticalAlign: "top", height: 58 }}>
+                  {item ? <div onClick={() => nav("LB-03", { reqId: item.id })} style={{ cursor: "pointer" }}>
+                    <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{item.vvip && <VVIPBadge size="sm" />}<span style={{ fontSize: 11.5, fontWeight: 600, lineHeight: 1.2 }}>{item.title}</span></div>
+                    <div className="mono" style={{ fontSize: 10, color: "var(--brand-mid)", marginTop: 2 }}>{item.currentNcl || item.id}</div>
+                    <div className="body-sm" style={{ fontSize: 9.5, color: "var(--muted)" }}>{item.brand} · {item.tracker || "—"}</div>
+                  </div> : <span style={{ fontSize: 10, color: "var(--border-strong)" }}>{slot + 1}</span>}
+                </td>; })}
+            </tr>)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>{bench.length} active bench projects · VVIP-first. Click any cell to open the project.</div>
+  </div>;
+}
+
 Object.assign(window.SCREENS, {
+  "LM-06": LM06_StationBoard,
   "LM-05": LM05_Planning,
   "LM-01": LM01_Dashboard, "LM-02": LM02_Oversight, "LM-03": LM03_Planning, "LM-04": LM04_Reports,
 });
