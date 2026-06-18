@@ -247,7 +247,7 @@ function EvaluationPanel({ req }) {
       <div className="row gap-2" style={{ alignItems: "center" }}><Icon name="calendar" size={15} color="var(--brand-accent)" />
         <div><div style={{ fontSize: 13, fontWeight: 600 }}>Station slot — booked by the planning desk</div>
           <div className="body-sm" style={{ fontSize: 11.5 }}>Allocation happens at the lab meeting (FIFO + VVIP priority). You'll see your slot here once booked.</div></div></div>
-      {(ev.slot || "").includes("Station") ? <span className="pill" style={{ background: "var(--brand)", color: "#fff", fontWeight: 600 }}>{ev.slot}</span>
+      {ev.booking ? <span className="pill" style={{ background: "var(--brand)", color: "#fff", fontWeight: 600 }}>{ev.slot}</span>
         : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 600 }}>pending planning desk</span>}
     </div>
     <div className="label" style={{ marginBottom: 4 }}>Raw material / ingredient availability</div>
@@ -479,8 +479,8 @@ function WipDetail({ req, nav, role }) {
   const openFlags = req.flags.filter(f => !f.resolved);
   const showDispatch = stageIdx >= 4 && !POST.includes(req.status);
   const postApproval = ["Client approved", "In stability", "Archived"].includes(req.status);
-  function advance() { window.NaturisStore.advanceStage(req.id, req.status === "Accepted — date committed" ? STAGE_STATUS[0] : STAGE_STATUS[Math.min(stageIdx + 1, 4)], techOfReq(req)); }
   const LSTAGES = DL.LAB_LIVE_STAGES;
+  const booking = (req.evaluation || {}).booking;
   const curLS = req.labStage || (req.status === "Accepted — date committed" ? null : null);
   return <div className="col gap-4">
     {window.RaiseFlagDrawer && <window.RaiseFlagDrawer open={flagOpen} onClose={() => setFlagOpen(false)} reqId={req.id} role={role || "lab"} />}
@@ -514,25 +514,50 @@ function WipDetail({ req, nav, role }) {
       </div>
     </div>
 
-    {!postApproval && <div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
-      <SectionTitle sub="The 10 live stages the lab runs — only the lab tech updates this; sales sees it live">Live lab status</SectionTitle>
-      <div className="col" style={{ marginTop: 4 }}>
-        {LSTAGES.map((st, si) => { const curIdx = curLS ? LSTAGES.indexOf(curLS) : -1; const onSt = curLS === st; const doneSt = curIdx > si;
-          const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt;
-          return <div key={st} className="row gap-3" style={{ alignItems: "center", padding: "7px 4px", borderBottom: si < LSTAGES.length - 1 ? "1px solid var(--border)" : "none" }}>
-            <span style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-              background: onSt ? "var(--brand)" : doneSt ? "var(--approved-bg)" : "var(--page)", border: onSt ? "none" : "1px solid var(--border)" }}>
-              {doneSt ? <Icon name="check" size={12} color="var(--approved-fg)" /> : onSt ? <span style={{ width: 7, height: 7, borderRadius: 999, background: "#fff" }} /> : <span className="body-sm" style={{ fontSize: 9, color: "var(--muted)" }}>{si + 1}</span>}</span>
-            <button disabled={st === "Dispatched"} onClick={() => window.NaturisStore.setLabStage(req.id, st, techOfReq(req))}
-              title={st === "Dispatched" ? "Set when the SPOC approves dispatch" : "Mark as the current live status"}
-              style={{ border: "none", background: "transparent", cursor: st === "Dispatched" ? "not-allowed" : "pointer", padding: 0, textAlign: "left",
-                fontSize: 13, fontWeight: reached ? 700 : 500, color: onSt ? "var(--brand)" : reached ? "var(--ink)" : "var(--muted)", fontFamily: "var(--f-ui)" }}>{st}</button>
-            {onSt && <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand)", fontWeight: 700 }}>current</span>}
-            <div className="grow" />
-            {meta && <span className="body-sm" style={{ fontSize: 11, color: "var(--grey)" }}>{meta.at} · {meta.by}</span>}
-          </div>; })}
+    {/* your station slot for this deal — booked by the planning desk, read-only here */}
+    {!postApproval && <div className="card" style={{ padding: "12px 16px" }}>
+      <div className="row between wrap gap-2" style={{ alignItems: "center" }}>
+        <div className="row gap-2" style={{ alignItems: "center" }}><Icon name="calendar" size={16} color="var(--brand-accent)" />
+          <div><div style={{ fontSize: 13, fontWeight: 700 }}>Your station slot</div>
+            <div className="body-sm" style={{ fontSize: 11.5 }}>Booked by the Lab Planner — you can't change it here.</div></div></div>
+        {booking ? <span className="pill" style={{ background: "var(--brand)", color: "#fff", fontWeight: 700 }}><Icon name="check" size={12} color="#fff" /> {req.evaluation.slot}</span>
+          : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>awaiting a slot from planning</span>}
       </div>
     </div>}
+
+    {!postApproval && (() => {
+      const isLab = (role || "lab") === "lab";
+      const curIdx = curLS ? LSTAGES.indexOf(curLS) : -1;
+      const lastSettable = LSTAGES.indexOf("Ready to send"); // Dispatched is set on SPOC approval, not here
+      const setStage = st => { if (st !== "Dispatched") window.NaturisStore.setLabStage(req.id, st, techOfReq(req)); };
+      return <div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
+        <div className="row between wrap" style={{ alignItems: "flex-start", gap: 8 }}>
+          <SectionTitle sub={isLab ? "You own this — click any stage to set it as the live status. Sales sees the update instantly." : "The 10 live stages the lab runs — updated by the lab technician; you're viewing it live."}>Live lab status</SectionTitle>
+          {isLab && <div className="row gap-2">
+            <button className="btn btn-secondary btn-sm" disabled={curIdx <= 0} onClick={() => { const p = LSTAGES[curIdx - 1]; if (p) setStage(p); }} title="Move the live status back one stage">‹ Back a stage</button>
+            <button className="btn btn-sm" disabled={curIdx >= lastSettable} onClick={() => { const n = LSTAGES[(curIdx < 0 ? 0 : curIdx + 1)]; if (n) setStage(n); }} title="Advance the live status to the next stage">Advance stage ›</button>
+          </div>}
+        </div>
+        {isLab && curIdx < 0 && <div className="body-sm" style={{ fontSize: 12, color: "var(--coral-dark)", marginTop: 6 }}><Icon name="alert" size={12} color="var(--coral-dark)" /> No live status set yet — click the first stage you're on to start tracking.</div>}
+        <div className="col" style={{ marginTop: 8 }}>
+          {LSTAGES.map((st, si) => { const onSt = curLS === st; const doneSt = curIdx > si;
+            const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt; const locked = st === "Dispatched"; const clickable = isLab && !locked;
+            return <div key={st} role={clickable ? "button" : undefined} onClick={clickable ? () => setStage(st) : undefined}
+              onMouseEnter={clickable ? e => { if (!onSt) e.currentTarget.style.background = "var(--brand-wash)"; } : undefined}
+              onMouseLeave={clickable ? e => { e.currentTarget.style.background = onSt ? "var(--brand-wash)" : "transparent"; } : undefined}
+              className="row gap-3" style={{ alignItems: "center", padding: "9px 8px", borderRadius: 8, cursor: clickable ? "pointer" : "default", background: onSt ? "var(--brand-wash)" : "transparent", borderBottom: si < LSTAGES.length - 1 ? "1px solid var(--border)" : "none", transition: "background .1s" }}>
+              <span style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                background: onSt ? "var(--brand)" : doneSt ? "var(--approved-bg)" : "var(--page)", border: onSt ? "none" : "1px solid var(--border)" }}>
+                {doneSt ? <Icon name="check" size={12} color="var(--approved-fg)" /> : onSt ? <span style={{ width: 7, height: 7, borderRadius: 999, background: "#fff" }} /> : <span className="body-sm" style={{ fontSize: 9, color: "var(--muted)" }}>{si + 1}</span>}</span>
+              <span style={{ fontSize: 13, fontWeight: reached ? 700 : 500, color: onSt ? "var(--brand)" : reached ? "var(--ink)" : "var(--muted)" }}>{st}</span>
+              {onSt && <span className="pill pill-sm" style={{ background: "var(--brand)", color: "#fff", fontWeight: 700 }}>current</span>}
+              {locked && <span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)", fontWeight: 600 }} title="Set automatically when the SPOC approves dispatch"><Icon name="lock" size={9} color="var(--muted)" /> on SPOC approval</span>}
+              <div className="grow" />
+              {meta && <span className="body-sm" style={{ fontSize: 11, color: "var(--grey)" }}>{meta.at} · {meta.by}</span>}
+            </div>; })}
+        </div>
+      </div>;
+    })()}
     {showDispatch && <DispatchPanel req={req} />}
     {postApproval && <PostApproval req={req} />}
     {["Client approved", "In stability", "Archived"].includes(req.status) && window.PrePOChecklist && <window.PrePOChecklist req={req} role="lab" />}
@@ -563,8 +588,8 @@ function LB03_Live({ params, nav, role }) {
   const req = sel && reqs.find(r => r.id === sel);
   const fams = Array.from(new Set(all.map(r => r.categoryGroup).filter(Boolean)));
   const brands = Array.from(new Set(all.map(r => r.brand)));
-  const STAT_GROUPS = { evaluating: EVAL_ST, bench: ["Accepted — date committed", "Formulation", "Trial", "QC", "Fill"], dispatch: ["Ready for dispatch", "Dispatch awaiting SPOC approval"], sent: ["Sent to client", "Client approved", "In stability"] };
-  const shown = all.filter(r => (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) && (type === "all" || r.projectType === type) && (stat === "all" || (STAT_GROUPS[stat] || []).includes(r.status)) && (!q || (r.id + " " + r.brand + " " + r.title + " " + (r.tracker || "")).toLowerCase().includes(q.toLowerCase())));
+  const LIVE_STAGES = DL.LAB_LIVE_STAGES || [];
+  const shown = all.filter(r => (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) && (type === "all" || r.projectType === type) && (stat === "all" || r.labStage === stat) && (!q || (r.id + " " + r.brand + " " + r.title + " " + (r.tracker || "")).toLowerCase().includes(q.toLowerCase())));
   const tatZone = days => days < 7 ? ["var(--approved-bg)", "var(--approved-fg)", days + " days"] : days <= 10 ? ["var(--review-bg)", "var(--review-fg)", days + " days"] : ["var(--coral-wash)", "var(--coral-dark)", days + " days"];
 
   // detail view (clicked a tile)
@@ -590,7 +615,7 @@ function LB03_Live({ params, nav, role }) {
       <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={fam} onChange={e => setFam(e.target.value)}><option value="all">All categories</option>{fams.map(f => <option key={f}>{f}</option>)}</select>
       <select className="select" style={{ width: 140, height: 34, fontSize: 12 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="all">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
       <select className="select" style={{ width: 120, height: 34, fontSize: 12 }} value={type} onChange={e => setType(e.target.value)}><option value="all">All types</option>{["EPD", "REN", "TT", "NPD"].map(t => <option key={t}>{t}</option>)}</select>
-      <select className="select" style={{ width: 160, height: 34, fontSize: 12 }} value={stat} onChange={e => setStat(e.target.value)}><option value="all">All stages</option><option value="evaluating">In evaluation</option><option value="bench">On the bench</option><option value="dispatch">Ready / dispatch</option><option value="sent">Sent / stability</option></select>
+      <select className="select" style={{ width: 180, height: 34, fontSize: 12 }} value={stat} onChange={e => setStat(e.target.value)}><option value="all">All stages</option>{LIVE_STAGES.map(s => <option key={s} value={s}>{s}</option>)}</select>
     </div>
     <div className="body-sm" style={{ fontSize: 12 }}>{shown.length} live quer{shown.length !== 1 ? "ies" : "y"}</div>
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>

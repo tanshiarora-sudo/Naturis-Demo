@@ -63,13 +63,15 @@ function RoleSwitcher({ open, current, onPick, onClose }) {
 }
 
 /* ---------- NOTIFICATIONS DRAWER (bell) ---------- */
-function NotificationsDrawer({ open, onClose, onOpenReq }) {
+function NotificationsDrawer({ open, onClose, onOpenReq, role }) {
   const D = window.NaturisData;
   if (!open) return null;
-  const typeIcon = { flag: "flag", vvip: "star", sla: "clock", dispatch: "dispatch", unresponsive: "phone" };
+  const typeIcon = { flag: "flag", vvip: "star", sla: "clock", dispatch: "dispatch", unresponsive: "phone", queue: "incoming" };
+  const list = window.NaturisStore.notifsFor ? window.NaturisStore.notifsFor(role) : D.NOTIFICATIONS;
   return <Drawer open={open} onClose={onClose} eyebrow="Feed" title="Notifications" width={460}>
     <div className="col gap-2">
-      {D.NOTIFICATIONS.map(n => <div key={n.id} onClick={() => { n.req && onOpenReq(n.req); onClose(); }}
+      {!list.length && <div className="body-sm" style={{ padding: 20, textAlign: "center" }}>No notifications for you right now.</div>}
+      {list.map(n => <div key={n.id} onClick={() => { n.req && onOpenReq(n.req); onClose(); }}
         style={{ padding: 14, borderRadius: 10, border: "1px solid var(--border)", cursor: n.req ? "pointer" : "default",
           background: n.read ? "var(--surface)" : "var(--brand-wash)", display: "flex", gap: 12 }}>
         <Icon name={typeIcon[n.type] || "bell"} size={18}
@@ -130,7 +132,7 @@ function App() {
     </AppFrame>
 
     <RoleSwitcher open={switcherOpen} current={role} onClose={() => setSwitcherOpen(false)} onPick={switchRole} />
-    <NotificationsDrawer open={bellOpen} onClose={() => setBellOpen(false)}
+    <NotificationsDrawer open={bellOpen} onClose={() => setBellOpen(false)} role={role}
       onOpenReq={(reqId) => { const target = role === "lab" || role === "labmgr" ? "LB-03" : role === "manager" ? "SM-03" : "SP-04"; nav(target, { reqId }); }} />
   </>;
 }

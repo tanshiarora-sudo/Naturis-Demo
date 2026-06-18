@@ -95,7 +95,7 @@ function attentionCount(role, screen) {
     return R.filter(r => ["Approved", "R&D assessed", "R&D assessing", "Logged"].includes(r.status)).length; // LB-02 incoming
   }
   if (role === "labmgr") return R.filter(r => ["Approved","R&D assessed","R&D assessing","Acknowledged","In evaluation"].includes(r.status) || (r.queries||[]).some(q=>!q.resolved) || ["Declined","Rejected"].includes(r.status)).length + R.reduce((n, r) => n + (r.flags||[]).filter(f => !f.resolved && (/Lab/.test(f.owner || "") || f.raisedByRole === "Lab Technician")).length, 0);
-  if (role === "planner") return R.filter(r => ["Accepted — date committed", "Formulation", "Trial"].includes(r.status) && !(((r.evaluation || {}).slot || "").includes("Station"))).length;
+  if (role === "planner") return R.filter(r => ["Accepted — date committed", "Formulation", "Trial", "QC"].includes(r.status) && !(r.evaluation && r.evaluation.booking)).length;
   if (role === "admin") return D.NOTIFICATIONS.filter(n => !n.read).length;
   return 0;
 }
@@ -149,7 +149,7 @@ function Sidebar({ role, screen, onNav, onSwitchRole }) {
 function TopBar({ role, screen, onNav, onBell, dark, onToggleTheme }) {
   const D = window.NaturisData;
   const roleObj = D.ROLES.find(r => r.id === role);
-  const unread = D.NOTIFICATIONS.filter(n => !n.read).length;
+  const unread = (window.NaturisStore.notifsFor ? window.NaturisStore.notifsFor(role) : D.NOTIFICATIONS).filter(n => !n.read).length;
   const title = SCREEN_TITLES[screen] || screen;
   return <header style={{ height: 60, background: "var(--surface)", borderBottom: "1px solid var(--border)",
     padding: "0 28px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
