@@ -274,20 +274,25 @@ function AD10_AddressBook() {
   window.useStore();
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editIdx, setEditIdx] = useState(-1);
   const [f, setF] = useState({ client: "", contact: "", lines: "", status: "active" });
   const all = DA.SHIP_ADDRESSES || [];
   const list = all.filter(s => !q || (s.client + " " + s.contact).toLowerCase().includes(q.toLowerCase()));
   function save() {
     if (!f.client.trim()) return;
-    window.NaturisStore.addShipAddress({ client: f.client.trim(), contact: f.contact.trim() || "—", to: f.lines.split("\n").map(x => x.trim()).filter(Boolean), status: f.status });
-    setF({ client: "", contact: "", lines: "", status: "active" }); setAdding(false);
+    const rec = { client: f.client.trim(), contact: f.contact.trim() || "—", to: f.lines.split("\n").map(x => x.trim()).filter(Boolean), status: f.status };
+    if (editIdx >= 0) window.NaturisStore.updateShipAddress(editIdx, rec);
+    else window.NaturisStore.addShipAddress(rec);
+    setF({ client: "", contact: "", lines: "", status: "active" }); setAdding(false); setEditIdx(-1);
   }
+  function startEdit(s) { const idx = (DA.SHIP_ADDRESSES || []).indexOf(s); setEditIdx(idx); setF({ client: s.client, contact: s.contact === "—" ? "" : s.contact, lines: (s.to || []).join("\n"), status: s.status }); setAdding(true); }
+  function del(s) { const idx = (DA.SHIP_ADDRESSES || []).indexOf(s); if (idx >= 0) window.NaturisStore.removeShipAddress(idx); }
   return <div className="col gap-5">
     <PageHead title="Ship-to address book" sub="Dispatch directory · the Naturis lab is always the 'From'. Green = active, red = discarded."
-      actions={<div className="row gap-2"><div style={{ position: "relative", width: 220 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div><button className="btn" onClick={() => setAdding(true)}><Icon name="plus" size={15} /> Add address</button></div>} />
+      actions={<div className="row gap-2"><div style={{ position: "relative", width: 220 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div><button className="btn" onClick={() => { setEditIdx(-1); setF({ client: "", contact: "", lines: "", status: "active" }); setAdding(true); }}><Icon name="plus" size={15} /> Add address</button></div>} />
     {adding && <><div onClick={() => setAdding(false)} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", zIndex: 95 }} />
       <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(520px,94vw)", background: "var(--surface)", borderRadius: 16, boxShadow: "0 24px 64px rgba(15,23,42,.3)", zIndex: 96, padding: 24 }}>
-        <div className="row between" style={{ marginBottom: 14 }}><div className="h3">New ship-to address</div><button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}><Icon name="x" size={16} /></button></div>
+        <div className="row between" style={{ marginBottom: 14 }}><div className="h3">{editIdx >= 0 ? "Edit ship-to address" : "New ship-to address"}</div><button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}><Icon name="x" size={16} /></button></div>
         <div className="col gap-3">
           <Field label="Client / brand" required><input className="input" value={f.client} onChange={e => setF(x => ({ ...x, client: e.target.value }))} placeholder="e.g. Plum" /></Field>
           <Field label="Contact person"><input className="input" value={f.contact} onChange={e => setF(x => ({ ...x, contact: e.target.value }))} placeholder="e.g. Ms. Dolly Suri" /></Field>
@@ -301,7 +306,11 @@ function AD10_AddressBook() {
       {list.map((s, i) => <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", opacity: s.status === "discarded" ? .6 : 1 }}>
         <div className="row between" style={{ padding: "9px 14px", background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)" }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)" }}>{s.client}</span>
-          <span className="pill pill-sm" style={{ background: "var(--surface)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize" }}>{s.status}</span>
+          <span className="row gap-1" style={{ alignItems: "center" }}>
+            <span className="pill pill-sm" style={{ background: "var(--surface)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize" }}>{s.status}</span>
+            <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} title="Edit" onClick={() => startEdit(s)}><Icon name="edit" size={13} /></button>
+            {window.ConfirmBtn ? <window.ConfirmBtn className="btn btn-ghost btn-sm" style={{ padding: 4 }} confirmLabel="Delete?" onConfirm={() => del(s)}><Icon name="x" size={13} color="var(--coral-dark)" /></window.ConfirmBtn> : <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={() => del(s)}><Icon name="x" size={13} /></button>}
+          </span>
         </div>
         <div style={{ padding: "12px 14px" }}>
           <div className="label" style={{ fontSize: 8 }}>To</div>

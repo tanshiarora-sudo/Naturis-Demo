@@ -1095,6 +1095,20 @@ function SP04_Detail({ params, nav, role }) {
     </div>
 
     <SpocActionCard req={req} />
+    {req.labStage && <div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
+      <SectionTitle sub="Live from the lab — updated by the lab technician as work progresses">Lab status</SectionTitle>
+      <div className="col">
+        {(window.NaturisData.LAB_LIVE_STAGES || []).map((st, si) => { const curIdx = (window.NaturisData.LAB_LIVE_STAGES || []).indexOf(req.labStage); const onSt = req.labStage === st; const doneSt = curIdx > si; const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt;
+          return <div key={st} className="row gap-3" style={{ alignItems: "center", padding: "6px 4px", borderBottom: si < 9 ? "1px solid var(--border)" : "none", opacity: reached ? 1 : .5 }}>
+            <span style={{ width: 20, height: 20, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: onSt ? "var(--brand)" : doneSt ? "var(--approved-bg)" : "var(--page)", border: onSt ? "none" : "1px solid var(--border)" }}>
+              {doneSt ? <Icon name="check" size={11} color="var(--approved-fg)" /> : onSt ? <span style={{ width: 6, height: 6, borderRadius: 999, background: "#fff" }} /> : <span className="body-sm" style={{ fontSize: 8.5, color: "var(--muted)" }}>{si + 1}</span>}</span>
+            <span style={{ fontSize: 12.5, fontWeight: reached ? 700 : 500, color: onSt ? "var(--brand)" : "var(--ink)" }}>{st}</span>
+            {onSt && <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand)", fontWeight: 700 }}>current</span>}
+            <div className="grow" />
+            {meta && <span className="body-sm" style={{ fontSize: 11, color: "var(--grey)" }}>{meta.at} · {meta.by}</span>}
+          </div>; })}
+      </div>
+    </div>}
         {["Client approved", "In stability"].includes(req.status) && <PrePOChecklist req={req} role={role === "admin" ? "admin" : "spoc"} />}
 
     <div className="grid gap-4" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>

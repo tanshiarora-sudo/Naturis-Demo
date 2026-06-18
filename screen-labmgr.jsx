@@ -130,73 +130,59 @@ function LM02_Oversight({ nav }) {
   const shown = phase === "all" ? allItems : (PHASES.find(p => p[0] === phase) || [0, 0, []])[2];
   const techs = Array.from(new Set(Object.values(DLM.LAB_DESKS).map(d => d.tech)));
   const phaseOf = r => PHASES.find(p => p[2].some(x => x.id === r.id));
-  const Tile = r => { const ph = phaseOf(r) || PHASES[0];
-    return <div key={r.id} onClick={() => nav("LB-03", { reqId: r.id })} className="card" style={{ padding: 0, overflow: "hidden", cursor: "pointer", transition: "transform .12s, box-shadow .12s" }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "var(--sh-lg)"; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
-      <div className="row between" style={{ padding: "8px 14px", background: ph[3] }}>
-        <span className="row gap-2" style={{ fontSize: 11, fontWeight: 700, color: ph[4] }}><Icon name={ph[5]} size={12} color={ph[4]} /> {ph[1]}</span>
-        <SLAIndicator req={r} />
-      </div>
-      <div style={{ padding: "12px 14px" }}>
-        <div className="row gap-2" style={{ flexWrap: "wrap", marginBottom: 4 }}>{r.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>{r.id.slice(-4)}</span></div>
-        <div style={{ fontWeight: 700, fontSize: 13.5 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
-        <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 8 }}>{r.category}</div>
-        <div className="row between">
-          <span className="row gap-2"><Avatar name={techOf(r)} size={20} /><span className="body-sm" style={{ fontSize: 11 }}>{techOf(r)}</span></span>
-          <span className="row gap-2"><StatusPill status={r.status} size="sm" /><StartDate req={r} /></span>
-        </div>
-      </div>
-    </div>; };
   const labFlags = reqs.flatMap(r => (r.flags || []).filter(f => !f.resolved && (/Lab/.test(f.owner || "") || f.raisedByRole === "Lab Technician")).map(f => ({ f, r })));
-  return <div className="col gap-5">
-    <PageHead title="Lab meeting" sub="Every active lab workflow — click a stage tile to focus, click a card to intervene"
-      actions={<div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10 }}>
-        {[["stage", "By stage"], ["tech", "By technician"]].map(([v, l]) => <button key={v} onClick={() => setView(v)} className="btn btn-sm" style={{ background: view === v ? "var(--surface)" : "transparent", color: view === v ? "var(--brand)" : "var(--muted)", boxShadow: view === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
-      </div>} />
-    <div className="row between wrap gap-2">
-      <div style={{ position: "relative", width: 280 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span>
-        <input className="input" style={{ paddingLeft: 36 }} placeholder="Search across the lab meeting…" value={q} onChange={e => setQ(e.target.value)} /></div>
-      <button className="btn btn-secondary btn-sm" onClick={() => { const rows = window.vvipSort(allItems).filter(srch); const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; const csv = ["Req,Brand,Title,Type,Status,Chemist,Live stage"].concat(rows.map(r => [r.id, r.brand, r.title, r.projectType, r.status, r.tracker || "", r.labStage || ""].map(esc).join(","))).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" })); a.download = "lab-meeting.csv"; a.click(); URL.revokeObjectURL(a.href); }}><Icon name="download" size={14} /> Export</button>
-    </div>
-    {/* lab-owned flags — the Lab Manager's flag queue */}
+  const stageOf = r => { const p = PHASES.find(p => p[2].some(x => x.id === r.id)); return p ? p[1] : "—"; };
+  const rows = window.vvipSort(shown.filter(srch));
+  return <div className="col gap-4">
+    <PageHead title="Lab meeting" sub="Every active lab workflow in one sheet — filter by stage, search, open any row to intervene."
+      actions={<button className="btn btn-secondary btn-sm" onClick={() => { const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; const csv = ["Req,Brand,Title,Type,Status,Chemist,Live stage,Stage bucket"].concat(rows.map(r => [r.id, r.brand, r.title, r.projectType, r.status, r.tracker || "", r.labStage || "", stageOf(r)].map(esc).join(","))).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" })); a.download = "lab-meeting.csv"; a.click(); URL.revokeObjectURL(a.href); }}><Icon name="download" size={14} /> Export</button>} />
+    {/* lab-owned flags — your response needed (kept on top) */}
     {labFlags.length > 0 && <div className="card" style={{ border: "1px solid var(--coral)", padding: 0, overflow: "hidden" }}>
       <div className="row between" style={{ padding: "12px 18px", background: "var(--coral-wash)", borderBottom: "1px solid var(--border)" }}>
-        <span className="row gap-2"><Icon name="flag" size={15} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 14, color: "var(--coral-dark)" }}>Lab flags — raised by or owned by the lab, your response needed</span></span>
+        <span className="row gap-2"><Icon name="flag" size={15} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 14, color: "var(--coral-dark)" }}>Lab flags — your response needed</span></span>
         <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--coral-dark)", fontWeight: 700 }}>{labFlags.length}</span>
       </div>
       <div className="col gap-3" style={{ padding: 16 }}>
         {labFlags.map(({ f, r }) => <LMFlagRow key={(r.id || "") + (f.id || "")} f={f} r={r} nav={nav} />)}
       </div>
     </div>}
-    {view === "stage" ? <>
-      {/* stage filter tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8 }}>
-        {[...PHASES, ["all", "All active", allItems, "var(--brand-wash)", "var(--brand)", "list"]].map(([k, label, items, bg, fg, ic]) => { const on = phase === k;
-          return <button key={k} onClick={() => setPhase(k)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 12, padding: "12px 10px", textAlign: "left", transition: "all .15s",
-            background: on ? fg : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
-            <Icon name={ic} size={14} color={on ? "#fff" : fg} />
-            <div className="serif-num" style={{ fontSize: 22, marginTop: 4 }}>{items.length}</div>
-            <div style={{ fontSize: 10, fontWeight: 600, marginTop: 1, opacity: on ? .9 : .6 }}>{label}</div>
-          </button>; })}
+    {/* stage filter tiles */}
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8 }}>
+      {[["all", "All active", allItems, "var(--brand-wash)", "var(--brand)", "list"], ...PHASES].map(([k, label, items, bg, fg, ic]) => { const on = phase === k;
+        return <button key={k} onClick={() => setPhase(k)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 12, padding: "11px 10px", textAlign: "left", transition: "all .15s",
+          background: on ? fg : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
+          <Icon name={ic} size={14} color={on ? "#fff" : fg} />
+          <div className="serif-num" style={{ fontSize: 20, marginTop: 4 }}>{items.length}</div>
+          <div style={{ fontSize: 9.5, fontWeight: 600, marginTop: 1, opacity: on ? .9 : .6, lineHeight: 1.2 }}>{label}</div>
+        </button>; })}
+    </div>
+    <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+      <div style={{ position: "relative", width: 260 }}><span style={{ position: "absolute", left: 12, top: 10 }}><Icon name="search" size={15} color="var(--muted)" /></span>
+        <input className="input" style={{ paddingLeft: 36, height: 34, fontSize: 12 }} placeholder="Search id, brand, title, chemist…" value={q} onChange={e => setQ(e.target.value)} /></div>
+      <span className="body-sm" style={{ fontSize: 12 }}>{rows.length} in view</span>
+    </div>
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto", maxHeight: "66vh", overflowY: "auto" }}>
+        <table className="tbl" style={{ minWidth: 1200 }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["Req ID", "Brand", "Product", "Type", "Chemist", "Stage bucket", "Status", "Live stage", "SLA", ""].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "9px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+          <tbody>
+            {rows.map(r => <tr key={r.id} className="clickable" onClick={() => nav("LB-03", { reqId: r.id })} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
+              <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
+              <td style={{ padding: "8px 12px" }}><ProjectTypePill type={r.projectType} /></td>
+              <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}><span className="row gap-2" style={{ alignItems: "center" }}><Avatar name={techOf(r)} size={20} />{techOf(r)}</span></td>
+              <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{stageOf(r)}</td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><StatusPill status={r.status} size="sm" /></td>
+              <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--brand)", fontWeight: 600, whiteSpace: "nowrap" }}>{r.labStage || "—"}</td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><SLAIndicator req={r} /></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><button className="btn btn-sm btn-ghost" onClick={e => { e.stopPropagation(); nav("LB-03", { reqId: r.id }); }}>Open <Icon name="arrowRight" size={12} /></button></td>
+            </tr>)}
+            {!rows.length && <tr><td colSpan={10} style={{ padding: 34, textAlign: "center" }}><span className="body-sm">Nothing in this stage right now.</span></td></tr>}
+          </tbody>
+        </table>
       </div>
-      {shown.length ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
-        {window.vvipSort(shown).filter(srch).map(Tile)}
-      </div> : <div className="card" style={{ textAlign: "center", padding: 32 }}><div className="body-sm">Nothing in this stage right now.</div></div>}
-    </> : <div className="col gap-4">
-      {techs.map(tech => { const items = window.vvipSort(allItems.filter(r => techOf(r) === tech).filter(srch));
-        const deskCode = Object.keys(DLM.LAB_DESKS).find(k => DLM.LAB_DESKS[k].tech === tech);
-        return <div key={tech} className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="row between" style={{ padding: "14px 18px", background: "linear-gradient(120deg, var(--brand-wash) 0%, var(--surface) 70%)", borderBottom: "1px solid var(--border)" }}>
-            <div className="row gap-3"><Avatar name={tech} size={34} />
-              <div><div className="h3">{tech}</div><div className="body-sm" style={{ fontSize: 12 }}>{deskCode} desk · {items.length} active task{items.length !== 1 ? "s" : ""}</div></div></div>
-            <div style={{ width: 160 }}><div className="bar-track" style={{ height: 10 }}><div className="bar-fill" style={{ width: Math.min(100, items.length * 16) + "%", background: items.length > 5 ? "var(--coral)" : "var(--brand-accent)" }} /></div>
-              <div className="label" style={{ fontSize: 8.5, marginTop: 3, textAlign: "right" }}>load</div></div>
-          </div>
-          {items.length ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 12, padding: 16 }}>{items.map(Tile)}</div>
-            : <div className="body-sm" style={{ padding: 16 }}>No active tasks.</div>}
-        </div>; })}
-    </div>}
+    </div>
   </div>;
 }
 
@@ -299,59 +285,153 @@ function LM04_Reports() {
 function LM05_Planning({ nav }) {
   window.useStore();
   const reqs = DLM.REQUIREMENTS;
-  // queue: accepted / on-bench queries without a booked slot — FIFO with VVIP first
-  const queue = window.vvipSort(reqs.filter(r => ["Accepted — date committed", "Formulation", "Trial"].includes(r.status) && !(((r.evaluation || {}).slot || "").includes("Station"))));
-  const booked = reqs.filter(r => ((r.evaluation || {}).slot || "").includes("Station"));
-  const [sel, setSel] = useState(queue[0] ? queue[0].id : null);
-  const [slotSel, setSlotSel] = useState(null);
+  const STN = ["Emulsion / cream", "Gel / serum", "SPF / hybrid", "Cleanser / wash", "Oil / balm", "Mask / leave-on", "Colour / lip", "Hair / scalp"];
+  const OPS = window.NaturisData.STATION_OPERATORS;
+  const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17]; // each row = a one-hour slot, 09:00 → 18:00
+  const hLabel = h => String(h).padStart(2, "0") + ":00";
+  // upcoming working days (Mon–Fri), like a calendar week strip
+  const days = (function () { var arr = [], dt = new Date(), n = 0; while (n < 6) { var d = dt.getDay(); if (d !== 0 && d !== 6) { arr.push(new Date(dt)); n++; } dt.setDate(dt.getDate() + 1); } return arr; })();
+  const [dayIdx, setDayIdx] = useState(0);
+  const day = days[dayIdx];
+  const dayKey = day.toISOString().slice(0, 10);
+  const fmtFull = d => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+  const fmtShort = d => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+  const hasBooking = r => r.evaluation && r.evaluation.booking;
+  const queue = window.vvipSort(reqs.filter(r => ["Accepted — date committed", "Formulation", "Trial", "QC"].includes(r.status) && !hasBooking(r)));
+  const bookedAll = reqs.filter(hasBooking);
+  const [sel, setSel] = useState(null);
   const [pq, setPq] = useState("");
   const fqueue = queue.filter(r => !pq || (r.id + " " + r.brand + " " + r.title + " " + techOf(r)).toLowerCase().includes(pq.toLowerCase()));
-  const req = sel && reqs.find(r => r.id === sel);
-  function book() {
-    if (!req || !slotSel) return;
-    window.NaturisStore.setEvaluation(req.id, { slot: slotSel.label + " — " + req.id, slotSel });
-    window.NaturisStore._notify(req.id, "dispatch", "info", req.id + " slot booked", slotSel.label + " · by the planning desk.", "NR-04");
-    setSlotSel(null); const next = queue.filter(r => r.id !== req.id)[0]; setSel(next ? next.id : null);
+  const selReq = sel && reqs.find(r => r.id === sel);
+
+  // bookings landing on the visible day
+  const dayBookings = bookedAll.filter(r => r.evaluation.booking.dateKey === dayKey).map(r => ({ r, b: r.evaluation.booking }));
+  const stationData = STN.map((name, si) => {
+    const items = dayBookings.filter(x => x.b.station === si);
+    const startMap = {}; const covered = {};
+    items.forEach(({ r, b }) => { startMap[b.startHour] = { r, b }; for (var h = b.startHour; h < b.endHour; h++) covered[h] = true; });
+    return { name, si, startMap, covered, freeAt: h => !covered[h] };
+  });
+  const hoursBookedToday = dayBookings.reduce((s, x) => s + (x.b.endHour - x.b.startHour), 0);
+
+  // drag-to-book — Google-calendar feel; can never cross an occupied hour
+  const [drag, setDrag] = useState(null); // { station, startH, endH }
+  function startDrag(si, h) { if (!sel || !stationData[si].freeAt(h)) return; setDrag({ station: si, startH: h, endH: h }); }
+  function overDrag(si, h) {
+    if (!drag || si !== drag.station || h < drag.startH) return;
+    const sd = stationData[si]; for (var x = drag.startH; x <= h; x++) if (!sd.freeAt(x)) return; // stop at a wall
+    setDrag(d => (d ? { ...d, endH: h } : d));
   }
-  return <div className="col gap-5">
-    <PageHead title="Planning desk" sub="Asha & Vikram · centralised station allocation at the lab meeting — 8 stations, 3–4 products per station per day, FIFO with VVIP priority." />
+  function commit() {
+    if (!drag || !sel) { setDrag(null); return; }
+    const { station, startH, endH } = drag, sd = stationData[station];
+    for (var x = startH; x <= endH; x++) if (!sd.freeAt(x)) { setDrag(null); return; }
+    const booking = { dateKey: dayKey, dayLabel: fmtShort(day), station, startHour: startH, endHour: endH + 1, hours: endH + 1 - startH, stationName: STN[station] };
+    const label = STN[station] + " · " + fmtShort(day) + " · " + hLabel(startH) + "–" + hLabel(endH + 1);
+    window.NaturisStore.setEvaluation(sel, { booking, slot: label });
+    window.NaturisStore._notify(sel, "dispatch", "info", sel + " slot booked", label + " · by the planning desk.", "NR-04");
+    setDrag(null); const next = queue.filter(r => r.id !== sel)[0]; setSel(next ? next.id : null);
+  }
+  function release(r) { window.NaturisStore.setEvaluation(r.id, { booking: null, slot: "" }); }
+  const inDrag = (si, h) => drag && drag.station === si && h >= drag.startH && h <= drag.endH;
+  const ROWH = 46;
+
+  return <div className="col gap-4" style={{ userSelect: "none" }}>
+    <PageHead title="Planning desk" sub="Book any block on any station — drag across the hours you need (2h, 4h, a full day). Overlaps are blocked automatically." />
     <div className="grid grid-4 gap-3">
       <Stat label="Awaiting a slot" value={queue.length} attention={queue.length > 0} sub="VVIP first, then FIFO" />
-      <Stat label="Booked" value={booked.length} sub="This horizon" />
+      <Stat label="Booked (all days)" value={bookedAll.length} sub="Across the horizon" />
       <Stat label="VVIP waiting" value={queue.filter(r => r.vvip).length} attention={queue.filter(r => r.vvip).length > 0} sub="Priority allocation" />
-      <Stat label="Stations" value={8} sub="3–4 products / day each" />
+      <Stat label="Hours booked · this day" value={hoursBookedToday} sub={fmtShort(day)} />
     </div>
-    <div className="grid gap-4" style={{ gridTemplateColumns: "330px 1fr", alignItems: "start" }}>
+
+    {/* day strip — like a calendar week selector */}
+    <div className="row gap-2" style={{ alignItems: "center", flexWrap: "wrap" }}>
+      {days.map((d, di) => { const on = di === dayIdx; const cnt = bookedAll.filter(r => r.evaluation.booking.dateKey === d.toISOString().slice(0, 10)).length;
+        return <button key={di} onClick={() => setDayIdx(di)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 12, padding: "8px 14px", minWidth: 96, textAlign: "center", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, opacity: on ? .85 : .6 }}>{di === 0 ? "TODAY" : d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()}</div>
+          <div className="serif-num" style={{ fontSize: 19, lineHeight: 1.1 }}>{d.getDate()}</div>
+          <div style={{ fontSize: 9.5, fontWeight: 600, opacity: on ? .85 : .55 }}>{d.toLocaleDateString("en-GB", { month: "short" })}{cnt ? " · " + cnt : ""}</div>
+        </button>; })}
+    </div>
+
+    <div className="grid gap-4" style={{ gridTemplateColumns: "300px 1fr", alignItems: "start" }}>
+      {/* queue rail */}
       <div className="col gap-3">
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: 10, borderBottom: "1px solid var(--border)" }}>
-            <div className="label" style={{ marginBottom: 6 }}>Awaiting a slot ({queue.length}) · VVIP first, then FIFO</div>
+            <div className="label" style={{ marginBottom: 6 }}>Awaiting a slot ({queue.length}) · pick one, then drag on the grid</div>
             <div style={{ position: "relative" }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={14} color="var(--muted)" /></span>
               <input className="input" style={{ paddingLeft: 30, height: 32, fontSize: 12 }} placeholder="Search the queue…" value={pq} onChange={e => setPq(e.target.value)} /></div>
           </div>
-          <div style={{ maxHeight: "46vh", overflowY: "auto" }}>
+          <div style={{ maxHeight: "52vh", overflowY: "auto" }}>
             {fqueue.length ? fqueue.map(r => { const on = r.id === sel;
-              return <button key={r.id} onClick={() => setSel(r.id)} style={{ width: "100%", textAlign: "left", padding: "9px 12px", border: "none", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
+              return <button key={r.id} onClick={() => setSel(on ? null : r.id)} style={{ width: "100%", textAlign: "left", padding: "9px 12px", border: "none", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
                 <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>{r.vvip && <Icon name="star" size={11} color="#D97706" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10 }}>{r.id.slice(-4)}</span></div>
                 <div style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
                 <div className="body-sm" style={{ fontSize: 10.5 }}>{techOf(r)} · {r.status}</div>
               </button>; }) : <div className="body-sm" style={{ padding: 16, textAlign: "center" }}>{queue.length ? "No matches." : "Everything has a slot. 🎉"}</div>}
           </div>
         </div>
-        <div className="card" style={{ padding: 8 }}>
-          <div className="label" style={{ padding: "6px 8px" }}>Booked ({booked.length})</div>
-          {booked.slice(0, 8).map(r => <div key={r.id} style={{ padding: "7px 8px", borderBottom: "1px solid var(--border)" }}>
-            <div className="row between"><span style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.brand} · {r.title}</span></div>
-            <div className="body-sm mono" style={{ fontSize: 10.5, color: "var(--brand-mid)" }}>{(r.evaluation || {}).slot}</div>
-          </div>)}
+        <div className="card" style={{ padding: "10px 12px", background: sel ? "var(--brand-wash)" : "var(--page)", borderLeft: sel ? "3px solid var(--brand)" : "3px solid var(--border)" }}>
+          {selReq ? <div className="body-sm" style={{ fontSize: 12 }}><b style={{ color: "var(--brand)" }}>Booking:</b> {selReq.brand} · {selReq.title}<div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Drag across the hours on any station →</div></div>
+            : <div className="body-sm" style={{ fontSize: 12 }}>Select a query above to start booking.</div>}
         </div>
       </div>
-      <div className="card">
-        {req ? <div className="row between wrap gap-2" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "var(--brand-wash)" }}>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Booking for: <span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title} <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{req.id}</span></span>
-          <button className="btn btn-sm" disabled={!slotSel} onClick={book}><Icon name="check" size={13} /> Book this slot</button>
-        </div> : <div className="body-sm" style={{ marginBottom: 12 }}>Pick a query from the queue to allocate its station.</div>}
-        <LabStationCalendar value={slotSel} onChange={setSlotSel} title="Station allocation" />
+
+      {/* calendar grid */}
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="row between" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <div className="row gap-2" style={{ alignItems: "center" }}>
+            <button className="btn btn-sm btn-secondary" disabled={dayIdx === 0} onClick={() => setDayIdx(i => Math.max(0, i - 1))} style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }}>‹</button>
+            <span style={{ fontWeight: 800, fontSize: 15 }}>{fmtFull(day)}{dayIdx === 0 ? " · today" : ""}</span>
+            <button className="btn btn-sm btn-secondary" disabled={dayIdx === days.length - 1} onClick={() => setDayIdx(i => Math.min(days.length - 1, i + 1))} style={{ fontSize: 16, lineHeight: 1, padding: "4px 10px" }}>›</button>
+          </div>
+          <span className="body-sm" style={{ fontSize: 11.5 }}>{dayBookings.length} booked · {hoursBookedToday}h allocated</span>
+        </div>
+        <div style={{ overflowX: "auto" }} onMouseUp={commit} onMouseLeave={() => setDrag(null)}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1080 }}>
+            <thead><tr>
+              <th style={{ position: "sticky", left: 0, zIndex: 2, background: "var(--brand)", color: "#fff", width: 62, minWidth: 62, padding: "8px 6px", fontSize: 10, fontWeight: 700 }}>Time</th>
+              {STN.map((name, si) => <th key={si} style={{ background: "var(--brand)", color: "#fff", padding: "7px 8px", textAlign: "left", borderLeft: "1px solid rgba(255,255,255,.14)", minWidth: 124 }}>
+                <div style={{ fontSize: 11, fontWeight: 800 }}>Station {si + 1}</div>
+                <div style={{ fontSize: 9.5, opacity: .85, lineHeight: 1.25 }}>{name}<br />{OPS[si]}</div></th>)}
+            </tr></thead>
+            <tbody>
+              {HOURS.map(h => { const rowCells = []; const skip = {};
+                return <tr key={h}>
+                  <td style={{ position: "sticky", left: 0, zIndex: 1, background: "var(--page)", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "0 6px", fontSize: 10.5, fontWeight: 700, color: "var(--muted)", verticalAlign: "top", height: ROWH }}>{hLabel(h)}</td>
+                  {stationData.map((sd, si) => {
+                    const ev = sd.startMap[h];
+                    if (ev) { const dur = ev.b.endHour - ev.b.startHour; const r = ev.r;
+                      return <td key={si} rowSpan={dur} style={{ borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: 4, verticalAlign: "top" }}>
+                        <div style={{ height: dur * ROWH - 8, borderRadius: 9, padding: "6px 8px", background: r.vvip ? "linear-gradient(135deg,#F59E0B,#D97706)" : "var(--grad-brand)", color: "#fff", position: "relative", overflow: "hidden", cursor: "pointer" }} onClick={() => nav("LB-03", { reqId: r.id })}>
+                          <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{r.vvip && <Icon name="star" size={10} color="#fff" />}<span style={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1.15 }}>{r.title}</span></div>
+                          <div style={{ fontSize: 10, opacity: .9, marginTop: 1 }}>{r.brand} · {r.tracker || "—"}</div>
+                          <div className="mono" style={{ fontSize: 9.5, opacity: .85 }}>{hLabel(ev.b.startHour)}–{hLabel(ev.b.endHour)} · {dur}h</div>
+                          <button title="Release this slot" onClick={e => { e.stopPropagation(); release(r); }} style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, borderRadius: 5, border: "none", background: "rgba(255,255,255,.25)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={11} color="#fff" /></button>
+                        </div>
+                      </td>;
+                    }
+                    if (!sd.freeAt(h)) return null; // covered by a rowSpan above
+                    const on = inDrag(si, h); const can = !!sel;
+                    return <td key={si} onMouseDown={() => startDrag(si, h)} onMouseEnter={() => overDrag(si, h)}
+                      style={{ borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", height: ROWH, cursor: can ? "pointer" : "default", background: on ? "var(--brand)" : "transparent", transition: "background .08s" }}
+                      onMouseOver={e => { if (can && !on && !drag) e.currentTarget.style.background = "var(--brand-wash)"; }}
+                      onMouseOut={e => { if (!on) e.currentTarget.style.background = "transparent"; }}>
+                      {on && h === drag.startH && <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", paddingLeft: 6 }}>{selReq ? selReq.title.slice(0, 14) : ""}</span>}
+                    </td>;
+                  })}
+                </tr>; })}
+            </tbody>
+          </table>
+        </div>
+        <div className="row gap-4" style={{ padding: "10px 16px", flexWrap: "wrap" }}>
+          <span className="row gap-2" style={{ alignItems: "center" }}><span style={{ width: 14, height: 14, borderRadius: 4, background: "var(--grad-brand)", display: "inline-block" }} /><span className="body-sm" style={{ fontSize: 11.5 }}>Booked block</span></span>
+          <span className="row gap-2" style={{ alignItems: "center" }}><span style={{ width: 14, height: 14, borderRadius: 4, background: "linear-gradient(135deg,#F59E0B,#D97706)", display: "inline-block" }} /><span className="body-sm" style={{ fontSize: 11.5 }}>VVIP</span></span>
+          <span className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>Drag empty cells to book · click a block to open · ✕ to release. No overlaps allowed.</span>
+        </div>
       </div>
     </div>
   </div>;

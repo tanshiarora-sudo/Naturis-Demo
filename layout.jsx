@@ -21,10 +21,10 @@ const NAV = {
   lab: [
     { id: "LB-01", label: "Dashboard", icon: "dashboard" },
     { id: "LB-02", label: "New requirements", icon: "incoming", badge: true },
+    { id: "LB-EVAL", label: "Under evaluation", icon: "queue", badge: true },
     { id: "LB-03", label: "Live query tracking", icon: "work" },
-    { id: "LB-EVAL", label: "Evaluation", icon: "queue", badge: true },
+    { id: "LB-05", label: "Dispatch", icon: "dispatch" },
     { id: "LB-06", label: "Stability", icon: "clock" },
-    { id: "LB-05", label: "Dispatch record", icon: "dispatch" },
     { id: "AD-10", label: "Address book", icon: "accounts" },
   ],
   labmgr: [
@@ -77,7 +77,7 @@ const SCREEN_TITLES = {
   "SP-04": "Requirement", "SP-07": "Live requirements", "SP-09": "My Reports",
   "SM-01": "Dashboard", "SM-02": "Review desk", "SM-03": "Review", "SM-04": "Team pipeline",
   "SM-05": "Flag review", "SM-06": "Team reports", "SM-LIVE": "Live requirements", "SM-PIPE": "Team pipeline", "CI-01": "Client intelligence",
-  "LB-01": "Dashboard", "LB-02": "New requirements", "LB-06": "Stability tracker", "LB-EVAL": "Evaluation", "LB-03": "Live query tracking", "LB-05": "Dispatch record",
+  "LB-01": "Dashboard", "LB-02": "New requirements", "LB-06": "Stability tracker", "LB-EVAL": "Under evaluation", "LB-03": "Live query tracking", "LB-05": "Dispatch record",
   "LM-01": "Dashboard", "LM-02": "Lab meeting", "LM-05": "Planning desk", "LM-06": "Station board", "LM-03": "Planning & load", "LM-04": "Reports",
   "MG-01": "Command centre", "MG-02": "Brands", "MG-03": "Intelligence reports", "MG-04": "Master tracker",
   "AD-10": "Ship-to address book", "GL-01": "Notifications", "AD-04": "Users", "AD-05": "Groups & access", "AD-07": "Accounts",

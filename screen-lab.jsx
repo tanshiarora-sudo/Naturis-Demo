@@ -136,6 +136,7 @@ function LB02_Incoming({ nav, role }) {
   const [spoc, setSpoc] = useState("all");
   const [q, setQ] = useState("");
   const [full, setFull] = useState(false);
+  const [need, setNeed] = useState("all");
   const Popup = window.RequirementPopup;
   const tatZone = days => days < 7 ? ["var(--approved-bg)", "var(--approved-fg)", "green"] : days <= 10 ? ["var(--review-bg)", "var(--review-fg)", "orange"] : ["var(--coral-wash)", "var(--coral-dark)", "critical"];
   // the acknowledgement inbox — new queries + acknowledged-but-not-yet-assigned
@@ -143,12 +144,15 @@ function LB02_Incoming({ nav, role }) {
   const fams = ["all", ...Array.from(new Set(lab.map(r => r.categoryGroup).filter(Boolean)))];
   const brands = Array.from(new Set(lab.map(r => r.brand)));
   const spocs = Array.from(new Set(lab.map(r => r.submittedBy)));
-  const rows = window.vvipSort(lab.filter(r =>
-    (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) &&
-    (type === "all" || r.projectType === type) && (spoc === "all" || r.submittedBy === spoc) &&
-    (!q || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(q.toLowerCase()))));
   const needsAck = r => PRE_ACK.includes(r.status);
   const ackNoAssign = r => r.status === "Acknowledged" && !r.assigned;
+  const filtered = lab.filter(r =>
+    (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) &&
+    (type === "all" || r.projectType === type) && (spoc === "all" || r.submittedBy === spoc) &&
+    (need === "all" || (need === "assign" ? ackNoAssign(r) : needsAck(r))) &&
+    (!q || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(q.toLowerCase())));
+  // for the lab manager, float rows awaiting chemist assignment to the top — that's their action
+  const rows = window.vvipSort(filtered).sort((a, b) => isLM ? (ackNoAssign(b) ? 1 : 0) - (ackNoAssign(a) ? 1 : 0) : 0);
   const stChip = s => <StatusPill status={s} size="sm" />;
   return <div className="col gap-4">
     <PageHead title="New requirements" sub={isLM ? "Incoming queries awaiting acknowledgement & chemist assignment. Once assigned, they move to the Query desk." : "New queries to acknowledge (seen & reviewed). The lab manager then assigns each to a chemist; live work lives on the Query desk."} />
@@ -160,6 +164,10 @@ function LB02_Incoming({ nav, role }) {
       <select className="select" style={{ width: 140, height: 34, fontSize: 12 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="all">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
       <select className="select" style={{ width: 120, height: 34, fontSize: 12 }} value={type} onChange={e => setType(e.target.value)}><option value="all">All types</option>{["EPD", "REN", "TT", "NPD"].map(t => <option key={t}>{t}</option>)}</select>
       <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={spoc} onChange={e => setSpoc(e.target.value)}><option value="all">All SPOCs</option>{spocs.map(s => <option key={s}>{s}</option>)}</select>
+      {isLM && <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 3, borderRadius: 9, marginLeft: "auto" }}>
+        {[["assign", "Needs assignment", lab.filter(ackNoAssign).length], ["ack", "Awaiting tech ack", lab.filter(needsAck).length], ["all", "All", lab.length]].map(([k, l, n]) => { const on = need === k;
+          return <button key={k} onClick={() => setNeed(k)} className="btn btn-sm" style={{ background: on ? "var(--surface)" : "transparent", color: on ? "var(--brand)" : "var(--muted)", boxShadow: on ? "var(--sh-sm)" : "none", border: "none", fontSize: 11.5 }}>{l} <span style={{ opacity: .7 }}>({n})</span></button>; })}
+      </div>}
     </div>
     <div className="row between wrap gap-2">
       <div className="body-sm" style={{ fontSize: 12 }}>{lab.filter(needsAck).length} awaiting acknowledgement · {lab.filter(ackNoAssign).length} acknowledged, awaiting chemist assignment</div>
@@ -173,7 +181,7 @@ function LB02_Incoming({ nav, role }) {
         <table className="tbl" style={{ minWidth: full ? 1560 : 1180 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
             <tr>{["Req ID", "Brand", "Title", "Category", "Type", "Code", "Status", "Responsible", "Sales POC", ...(full ? ["Requested", "Target dispatch"] : []), "TAT", ...(full ? ["Remarks"] : []), "Action"].map(h =>
-              <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "9px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr>
+              <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "9px 12px", textAlign: h === "Action" ? "right" : "left", whiteSpace: "nowrap", ...(h === "Action" ? { position: "sticky", right: 0, zIndex: 3, boxShadow: "-8px 0 12px -8px rgba(0,0,0,.18)" } : {}) }}>{h}</th>)}</tr>
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
@@ -190,8 +198,8 @@ function LB02_Incoming({ nav, role }) {
               {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{(r.targetSampleDate || "—").replace(" 2026", "")}</td>}
               <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{["Archived", "Client approved", "Rejected"].includes(r.status) ? <span className="body-sm">—</span> : (() => { const z = tatZone(r.age || 0); return <span className="pill pill-sm" style={{ background: z[0], color: z[1], fontWeight: 700 }} title={(r.age || 0) + " days in pipeline"}>{z[2]}</span>; })()}</td>
               {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(r.briefDetail || {}).notes || "—"}</td>}
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
-                <span className="row gap-2" style={{ alignItems: "center" }}>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap", position: "sticky", right: 0, background: ackNoAssign(r) && isLM ? "var(--review-bg)" : "var(--surface)", boxShadow: "-8px 0 12px -8px rgba(0,0,0,.12)" }}>
+                <span className="row gap-2" style={{ alignItems: "center", justifyContent: "flex-end" }}>
                   <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "brief" })} title="View initial requirement"><Icon name="note" size={12} /></button>
                   {needsAck(r) ? (isLM ? <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>awaiting tech ack</span>
                       : <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.acknowledge(r.id, techOfReq(r))}><Icon name="check" size={12} /> Acknowledge</button>)
@@ -300,47 +308,42 @@ function DecisionPanel({ req, nav }) {
   </div>;
 }
 
-function EvalPopup({ open, onClose, reqId, nav }) {
-  window.useStore();
-  const req = reqId ? window.NaturisStore.get(reqId) : null;
-  const [briefOpen, setBriefOpen] = useState(false);
-  useEffect(() => { if (open && req && req.status === "Acknowledged") window.NaturisStore.startEvaluation(req.id, techOfReq(req)); }, [open, req && req.id, req && req.status]);
-  const Popup = window.RequirementPopup;
-  if (!open || !req) return null;
-  return <>
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", zIndex: 95 }} />
-    <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(880px, 96vw)", maxHeight: "92vh", overflowY: "auto", background: "var(--bg)", borderRadius: 16, boxShadow: "0 24px 64px rgba(15,23,42,.3)", zIndex: 96 }}>
-      <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--surface)", borderBottom: "1px solid var(--border)", padding: "16px 22px" }}>
-        <div className="row between" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
-          <div><div className="row gap-2" style={{ marginBottom: 4, flexWrap: "wrap" }}>{req.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={req.projectType} showLabel /><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{req.id}</span><StatusPill status={req.status} /></div>
-            <div className="h2" style={{ fontSize: 20 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
-            <div className="body-sm" style={{ fontSize: 12 }}>SPOC {req.submittedBy} · chemist {req.tracker || (DL.LAB_DESKS[req.projectType] || {}).tech}</div></div>
-          <div className="row gap-2">
-            <button className="btn btn-secondary btn-sm" onClick={() => setBriefOpen(true)}><Icon name="note" size={13} /> Initial requirement</button>
-            <button className="btn btn-ghost btn-sm" onClick={onClose}><Icon name="x" size={16} /></button>
-          </div>
-        </div>
-      </div>
-      <div className="col gap-4" style={{ padding: 20 }}>
-        <EvaluationPanel req={req} />
-        <DecisionPanel req={req} nav={(s, p) => { onClose(); nav && nav(s, p); }} />
-      </div>
-    </div>
-    {Popup && <Popup open={briefOpen} onClose={() => setBriefOpen(false)} reqId={req.id} />}
-  </>;
-}
-
 function LB_Eval({ params, nav }) {
   window.useStore();
   const reqs = DL.REQUIREMENTS;
   const list = window.vvipSort(reqs.filter(r => EVAL_ST.includes(r.status) && (r.assigned || r.tracker)));
   const [openId, setOpenId] = useState(params.reqId || null);
+  const [briefOpen, setBriefOpen] = useState(false);
   const [q, setQ] = useState(""); const [fam, setFam] = useState("all"); const [brand, setBrand] = useState("all"); const [type, setType] = useState("all");
+  const req = openId ? reqs.find(r => r.id === openId) : null;
+  useEffect(() => { if (req && req.status === "Acknowledged") window.NaturisStore.startEvaluation(req.id, techOfReq(req)); }, [req && req.id, req && req.status]);
+  const Popup = window.RequirementPopup;
+
+  // full-page detail (no modal) — takes the whole screen
+  if (req) {
+    return <div className="col gap-4">
+      <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setOpenId(null)}><Icon name="arrowRight" size={14} style={{ transform: "rotate(180deg)" }} /> Back to evaluation queue</button>
+      <div className="card">
+        <div className="row between" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+          <div><div className="row gap-2" style={{ marginBottom: 6, flexWrap: "wrap" }}>{req.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={req.projectType} showLabel /><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{req.id}</span><StatusPill status={req.status} /></div>
+            <div className="h2" style={{ fontSize: 24 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
+            <div className="body-sm">SPOC {req.submittedBy} · chemist {req.tracker || (DL.LAB_DESKS[req.projectType] || {}).tech}</div></div>
+          <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.25)" }} onClick={() => setBriefOpen(true)}><Icon name="note" size={15} /> View initial requirement</button>
+        </div>
+      </div>
+      <div className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr", alignItems: "start" }}>
+        <EvaluationPanel req={req} />
+        <DecisionPanel req={req} nav={(s, p) => { setOpenId(null); nav && nav(s, p); }} />
+      </div>
+      {Popup && <Popup open={briefOpen} onClose={() => setBriefOpen(false)} reqId={req.id} />}
+    </div>;
+  }
+
   const fams = Array.from(new Set(list.map(r => r.categoryGroup).filter(Boolean)));
   const brands = Array.from(new Set(list.map(r => r.brand)));
   const rows = list.filter(r => (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) && (type === "all" || r.projectType === type) && (!q || (r.id + " " + r.brand + " " + r.title + " " + (r.tracker || "")).toLowerCase().includes(q.toLowerCase())));
   return <div className="col gap-4">
-    <PageHead title="Evaluation" sub="Queries assigned to a chemist — open any row to record RM / PM / slot / availability and take the decision." />
+    <PageHead title="Under evaluation" sub="Queries assigned to a chemist — open any row to record RM / PM / slot / availability and take the decision." />
     {list.length === 0 ? <div className="card" style={{ textAlign: "center", padding: 40 }}><Icon name="check" size={24} color="var(--approved-fg)" /><div className="h3" style={{ marginTop: 8 }}>Nothing to evaluate</div><div className="body-sm" style={{ marginTop: 4 }}>Queries appear here once the lab manager assigns them to a chemist.</div></div>
     : <>
       <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
@@ -374,7 +377,6 @@ function LB_Eval({ params, nav }) {
         </div>
       </div>
     </>}
-    <EvalPopup open={!!openId} reqId={openId} onClose={() => setOpenId(null)} nav={nav} />
   </div>;
 }
 
@@ -737,8 +739,8 @@ function LB06_Stability({ nav }) {
       <div style={{ overflowX: "auto", maxHeight: "72vh", overflowY: "auto" }}>
         <table className="tbl" style={{ minWidth: 1700 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["S.No", "Charged", "Product", "Client", "Location", "Batch No", "MFG", "Initial", "M1", "M2", "M3", "M4", "M5", "M6", "Type", "Grade", "Condition"].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
-          <tbody>{rows.map(r => <tr key={r.sno} style={{ borderBottom: "1px solid var(--border)", background: r.live ? "var(--brand-wash)" : undefined }}>
-            <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)" }}>{r.sno}</td>
+          <tbody>{rows.map(r => <tr key={r.sno} style={{ borderBottom: "1px solid var(--border)" }}>
+            <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.live ? <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)", fontWeight: 700 }}>live</span> : r.sno}</td>
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.charged}</td>
             <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{r.product}</td>
             <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{r.client}</td>

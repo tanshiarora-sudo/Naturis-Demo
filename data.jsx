@@ -493,6 +493,23 @@ REQUIREMENTS.forEach(function (r) {
     for (var si = 0; si <= idx; si++) { var dd = new Date(2026, 5, 12); dd.setDate(dd.getDate() - (seedDays[si] || 1));
       r.labStageLog[LS[si]] = { by: chem, at: dd.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) }; }
   }
+  // seed Pre-PO checklist state for near-PO requirements — demonstrates the lab↔SPOC hand-off:
+  // lab-uploaded docs are visible to the SPOC, and the SPOC's confirmed cost is visible to the lab.
+  if (!r.prePO && ["Client approved", "In stability", "Sent to client", "Dispatch awaiting SPOC approval"].indexOf(r.status) >= 0) {
+    var seq = parseInt((r.id.match(/(\d{2,})$/) || ["0"])[0], 10) || 0;
+    var v = seq % 3;
+    if (v === 0) {
+      // lab has uploaded its docs; SPOC's cost is still pending (SPOC will SEE the lab docs are in)
+      r.prePO = { stability: true, stabilityDoc: true, ingredient: true, ingredientDoc: true, marketing: false, packaging: false, cost: false };
+    } else if (v === 1) {
+      // SPOC has confirmed the cost; lab still finishing its docs (lab will SEE the cost is in)
+      r.prePO = { cost: true, costValue: "₹" + (38 + (seq % 22)) + " / unit", stability: true, stabilityDoc: true, ingredient: false, marketing: false, packaging: false };
+    } else {
+      // both sides well along — only marketing/packaging docs left
+      r.prePO = { cost: true, costValue: "₹" + (42 + (seq % 18)) + " / unit", stability: true, stabilityDoc: true, ingredient: true, ingredientDoc: true, marketing: false, packaging: false };
+    }
+    r.prePOComplete = false;
+  }
   (r.queries || []).forEach(function (q) { if (q.by === "Sumit Choudhary" || q.by === "Tariq Khan") q.by = t; });
   (r.flags || []).forEach(function (f) { if (f.raisedByRole === "Lab Technician") f.raisedBy = t; if (f.resolvedBy === "Sumit Choudhary") f.resolvedBy = t; });
   (r.ncls || []).forEach(function (n) { if (n.by === "Sumit Choudhary" || n.by === "Tariq Khan") n.by = t; });
@@ -700,6 +717,8 @@ window.NaturisStore = {
   setPrePO(id, key, val, by) { const r = this.get(id); if (r) { r.prePO = r.prePO || {}; r.prePO[key] = val; const item = (window.NaturisData.PRE_PO_ITEMS.find(x => x[0] === key) || [])[1] || key; this.log(id, { kind: val ? "approval" : "status", icon: val ? "check" : "work", stage: "Pre-PO checklist", actor: by, role: "System", at: "just now", detail: item + (val ? " ✓ confirmed" : " un-ticked") }); const all = window.NaturisData.PRE_PO_ITEMS.every(x => r.prePO[x[0]]); if (all && !r.prePOComplete) { r.prePOComplete = true; this.log(id, { kind: "approval", icon: "star", stage: "Customer-ready", actor: "System", role: "System", at: "just now", detail: "Pre-PO checklist complete — customer-ready, awaiting PO.", current: true }); this._notify(id, "dispatch", "info", id + " is customer-ready — PO awaited", "All pre-PO checks done. Follow up for the PO.", "NR-04"); } if (!all) r.prePOComplete = false; } _bump(); },
   setVvipOverride(id, val, by) { const r = this.get(id); if (r) { this.addAudit({ actor: by, role: "Management", action: "VVIP override", target: id, field: "vvip", before: String(r.vvip), after: String(val), note: "Management override from command centre" }); r.vvip = val; this.log(id, { kind: "status", icon: "star", stage: "VVIP " + (val ? "set" : "removed"), actor: by, role: "Management", at: "just now", detail: "Management " + (val ? "marked this VVIP" : "removed VVIP") + " (override)." }); } _bump(); },
   addShipAddress(rec) { (window.NaturisData.SHIP_ADDRESSES = window.NaturisData.SHIP_ADDRESSES || []).unshift(rec); _bump(); },
+  updateShipAddress(idx, rec) { const a = window.NaturisData.SHIP_ADDRESSES || []; if (a[idx]) a[idx] = rec; _bump(); },
+  removeShipAddress(idx) { const a = window.NaturisData.SHIP_ADDRESSES || []; if (idx >= 0 && idx < a.length) a.splice(idx, 1); _bump(); },
   saveProfile(roleKey, patch, by) { const p = window.NaturisData.PROFILE_OF[roleKey]; if (p) { Object.assign(p, patch); this.addAudit({ actor: by || p.name, role: "Self", action: "Profile updated", target: p.empId, field: Object.keys(patch).join(", "), before: "—", after: "updated", note: "Edited from profile screen" }); } _bump(); },
   addFlag(id, flag) { const r = this.get(id); if (r) { flag.id = flag.id || ("F-" + (++_evSeq)); flag.resolved = false; r.flags.push(flag); r.manualFlag = true; this.log(id, { kind: "flag", icon: "flag", stage: "Flag", actor: flag.raisedBy, role: flag.raisedByRole || "SPOC", at: "just now", severity: flag.severity, detail: (flag.typeLabel || flag.type) + ": " + flag.text }); NOTIFICATIONS.unshift({ id: "N-" + (++_evSeq), type: "flag", severity: flag.severity, title: (flag.typeLabel || flag.type) + " flag on " + id, body: flag.text, at: "just now", read: false, req: id, rule: "NR-05" }); } _bump(); },
   setSeverity(id, flagId, severity) { const r = this.get(id); const f = r && r.flags.find(x => x.id === flagId); if (f) f.severity = severity; _bump(); },
