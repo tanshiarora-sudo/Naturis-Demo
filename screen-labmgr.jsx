@@ -203,7 +203,7 @@ function LM03_Planning({ nav }) {
   return <div className="col gap-5">
     <PageHead title="Planning & load" sub="Slot calendar · workload distribution · ageing" />
     <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10, width: "fit-content" }}>
-      {[["load", "Station load"], ["calendar", "Slot calendar"], ["workload", "Workload by tech"], ["ageing", "Ageing"]].map(([v, l]) =>
+      {[["load", "Station load"], ["calendar", "Slot calendar"], ["workload", "Workload by tech"], ["ageing", "Ageing"], ["sampling", "Daily sampling sheet"]].map(([v, l]) =>
         <button key={v} onClick={() => setTab(v)} className="btn btn-sm" style={{ background: tab === v ? "var(--surface)" : "transparent", color: tab === v ? "var(--brand)" : "var(--muted)", boxShadow: tab === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
     </div>
     {tab === "load" && <div className="card"><SectionTitle>Station load</SectionTitle>
@@ -222,6 +222,24 @@ function LM03_Planning({ nav }) {
       {ageing.length ? <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Req</Th><Th>Brand</Th><Th>Tech</Th><Th>Status</Th><Th>Started</Th></tr></thead>
         <tbody>{ageing.map(r => <tr key={r.id} className="clickable" onClick={() => nav("LB-03", { reqId: r.id })}><Td mono>{r.id}</Td><Td>{r.brand}</Td><Td>{techOf(r)}</Td><Td><StatusPill status={r.status} size="sm" /></Td><Td><StartDate req={r} /></Td></tr>)}</tbody></table></div>
         : <div className="body-sm" style={{ padding: "0 18px 18px" }}>Nothing ageing past 20 days.</div>}</div>}
+    {tab === "sampling" && (() => {
+      const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      const rows = benchItems.map((r, i) => { const bk = (r.evaluation || {}).booking; const ls = r.labStage || "";
+        return { date: today, product: r.title, brand: r.brand, chemist: techOf(r), batch: (bk && bk.batchSize) || "—", station: bk ? ("Station " + (bk.station + 1)) : "—", trial: r.iteration || 1,
+          result: /QC testing in process|Evaluation pending|Ready to send|Dispatched/.test(ls) ? "Pass" : /Rework/.test(ls) ? "Rework" : "In progress" }; });
+      const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+      return <div className="card" style={{ padding: 0 }}>
+        <div className="row between" style={{ padding: "14px 18px" }}>
+          <SectionTitle sub={"All trials run today across the stations · " + today + ". Stored day-on-day, year-on-year."}>Daily sampling sheet</SectionTitle>
+          <button className="btn btn-secondary btn-sm" onClick={() => { const csv = ["Date,Product,Client,Chemist,Batch size,Station,Trial #,Result"].concat(rows.map(x => [x.date, x.product, x.brand, x.chemist, x.batch, x.station, x.trial, x.result].map(esc).join(","))).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })); a.download = "daily-sampling-" + today.replace(/ /g, "-") + ".csv"; a.click(); URL.revokeObjectURL(a.href); }}><Icon name="download" size={14} /> Export</button>
+        </div>
+        <div style={{ padding: "0 18px 10px" }}><span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>Placeholder</span> <span className="body-sm" style={{ fontSize: 11.5 }}>Columns mirror the lab's daily trial Excel — final fields finalised once Dhruv shares the sheet.</span></div>
+        <div className="tbl-wrap"><table className="tbl"><thead><tr><Th>Date</Th><Th>Product</Th><Th>Client</Th><Th>Chemist</Th><Th>Batch size</Th><Th>Station</Th><Th>Trial #</Th><Th>Result</Th></tr></thead>
+          <tbody>{rows.map((x, i) => <tr key={i}><Td>{x.date}</Td><Td>{x.product}</Td><Td>{x.brand}</Td><Td>{x.chemist}</Td><Td>{x.batch}</Td><Td>{x.station}</Td><Td>{x.trial}</Td>
+            <Td><span className="pill pill-sm" style={{ background: x.result === "Pass" ? "var(--approved-bg)" : x.result === "Rework" ? "var(--coral-wash)" : "var(--review-bg)", color: x.result === "Pass" ? "var(--approved-fg)" : x.result === "Rework" ? "var(--coral-dark)" : "var(--review-fg)", fontWeight: 700 }}>{x.result}</span></Td></tr>)}
+            {!rows.length && <tr><td colSpan={8} style={{ padding: 24, textAlign: "center" }}><span className="body-sm">No trials on the bench today.</span></td></tr>}</tbody></table></div>
+      </div>;
+    })()}
   </div>;
 }
 
@@ -302,6 +320,9 @@ function LM05_Planning({ nav }) {
   const bookedAll = reqs.filter(hasBooking);
   const [sel, setSel] = useState(null);
   const [pq, setPq] = useState("");
+  const [batch, setBatch] = useState("");
+  const [popId, setPopId] = useState(null);
+  const Popup = window.RequirementPopup;
   const fqueue = queue.filter(r => !pq || (r.id + " " + r.brand + " " + r.title + " " + techOf(r)).toLowerCase().includes(pq.toLowerCase()));
   const selReq = sel && reqs.find(r => r.id === sel);
 
@@ -327,11 +348,11 @@ function LM05_Planning({ nav }) {
     if (!drag || !sel) { setDrag(null); return; }
     const { station, startH, endH } = drag, sd = stationData[station];
     for (var x = startH; x <= endH; x++) if (!sd.freeAt(x)) { setDrag(null); return; }
-    const booking = { dateKey: dayKey, dayLabel: fmtShort(day), station, startHour: startH, endHour: endH + 1, hours: endH + 1 - startH, stationName: STN[station] };
-    const label = STN[station] + " · " + fmtShort(day) + " · " + hLabel(startH) + "–" + hLabel(endH + 1);
+    const booking = { dateKey: dayKey, dayLabel: fmtShort(day), station, startHour: startH, endHour: endH + 1, hours: endH + 1 - startH, stationName: STN[station], batchSize: batch.trim() };
+    const label = STN[station] + " · " + fmtShort(day) + " · " + hLabel(startH) + "–" + hLabel(endH + 1) + (batch.trim() ? " · " + batch.trim() : "");
     window.NaturisStore.setEvaluation(sel, { booking, slot: label });
-    window.NaturisStore._notify(sel, "dispatch", "info", sel + " slot booked", label + " · by the planning desk.", "NR-04");
-    setDrag(null); const next = queue.filter(r => r.id !== sel)[0]; setSel(next ? next.id : null);
+    window.NaturisStore._notify(sel, "dispatch", "info", sel + " slot booked", label + " · by the planning desk.", "NR-04", ["lab", "spoc"]);
+    setDrag(null); setBatch(""); const next = queue.filter(r => r.id !== sel)[0]; setSel(next ? next.id : null);
   }
   function release(r) { window.NaturisStore.setEvaluation(r.id, { booking: null, slot: "" }); }
   const inDrag = (si, h) => drag && drag.station === si && h >= drag.startH && h <= drag.endH;
@@ -367,16 +388,26 @@ function LM05_Planning({ nav }) {
           </div>
           <div style={{ maxHeight: "52vh", overflowY: "auto" }}>
             {fqueue.length ? fqueue.map(r => { const on = r.id === sel;
-              return <button key={r.id} onClick={() => setSel(on ? null : r.id)} style={{ width: "100%", textAlign: "left", padding: "9px 12px", border: "none", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
-                <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>{r.vvip && <Icon name="star" size={11} color="#D97706" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10 }}>{r.id.slice(-4)}</span></div>
-                <div style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
-                <div className="body-sm" style={{ fontSize: 10.5 }}>{techOf(r)} · {r.status}</div>
-              </button>; }) : <div className="body-sm" style={{ padding: 16, textAlign: "center" }}>{queue.length ? "No matches." : "Everything has a slot. 🎉"}</div>}
+              return <div key={r.id} onClick={() => setSel(on ? null : r.id)} style={{ padding: "9px 12px", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
+                <div className="row between" style={{ alignItems: "flex-start", gap: 6 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>{r.vvip && <Icon name="star" size={11} color="#D97706" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10 }}>{r.id.slice(-4)}</span></div>
+                    <div style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
+                    <div className="body-sm" style={{ fontSize: 10.5 }}>{techOf(r)} · {r.status}</div>
+                  </div>
+                  <button className="btn btn-sm btn-secondary" title="View the full requirement" style={{ flexShrink: 0, padding: "4px 7px" }} onClick={e => { e.stopPropagation(); setPopId(r.id); }}><Icon name="note" size={12} /></button>
+                </div>
+              </div>; }) : <div className="body-sm" style={{ padding: 16, textAlign: "center" }}>{queue.length ? "No matches." : "Everything has a slot. 🎉"}</div>}
           </div>
         </div>
         <div className="card" style={{ padding: "10px 12px", background: sel ? "var(--brand-wash)" : "var(--page)", borderLeft: sel ? "3px solid var(--brand)" : "3px solid var(--border)" }}>
-          {selReq ? <div className="body-sm" style={{ fontSize: 12 }}><b style={{ color: "var(--brand)" }}>Booking:</b> {selReq.brand} · {selReq.title}<div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Drag across the hours on any station →</div></div>
-            : <div className="body-sm" style={{ fontSize: 12 }}>Select a query above to start booking.</div>}
+          {selReq ? <div className="body-sm" style={{ fontSize: 12 }}><b style={{ color: "var(--brand)" }}>Booking:</b> {selReq.brand} · {selReq.title}
+            <div className="row gap-2" style={{ alignItems: "center", margin: "8px 0 4px" }}>
+              <span className="label" style={{ fontSize: 9 }}>Batch size</span>
+              <input className="input" style={{ height: 30, fontSize: 12, width: 130 }} placeholder="e.g. 500 g / 1 kg" value={batch} onChange={e => setBatch(e.target.value)} />
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>Drag across the hours on any station → (batch size is stamped on the slot)</div></div>
+            : <div className="body-sm" style={{ fontSize: 12 }}>Select a query above to start booking. Tap the note icon on any row to read the full requirement.</div>}
         </div>
       </div>
 
@@ -409,7 +440,7 @@ function LM05_Planning({ nav }) {
                         <div style={{ height: dur * ROWH - 8, borderRadius: 9, padding: "6px 8px", background: r.vvip ? "linear-gradient(135deg,#F59E0B,#D97706)" : "var(--grad-brand)", color: "#fff", position: "relative", overflow: "hidden", cursor: "pointer" }} onClick={() => nav("LB-03", { reqId: r.id })}>
                           <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{r.vvip && <Icon name="star" size={10} color="#fff" />}<span style={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1.15 }}>{r.title}</span></div>
                           <div style={{ fontSize: 10, opacity: .9, marginTop: 1 }}>{r.brand} · {r.tracker || "—"}</div>
-                          <div className="mono" style={{ fontSize: 9.5, opacity: .85 }}>{hLabel(ev.b.startHour)}–{hLabel(ev.b.endHour)} · {dur}h</div>
+                          <div className="mono" style={{ fontSize: 9.5, opacity: .85 }}>{hLabel(ev.b.startHour)}–{hLabel(ev.b.endHour)} · {dur}h{ev.b.batchSize ? " · " + ev.b.batchSize : ""}</div>
                           <button title="Release this slot" onClick={e => { e.stopPropagation(); release(r); }} style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, borderRadius: 5, border: "none", background: "rgba(255,255,255,.25)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={11} color="#fff" /></button>
                         </div>
                       </td>;
@@ -434,6 +465,7 @@ function LM05_Planning({ nav }) {
         </div>
       </div>
     </div>
+    {Popup && <Popup open={!!popId} onClose={() => setPopId(null)} reqId={popId} />}
   </div>;
 }
 

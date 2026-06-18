@@ -139,23 +139,20 @@ function LB02_Incoming({ nav, role }) {
   const [need, setNeed] = useState("all");
   const Popup = window.RequirementPopup;
   const tatZone = days => days < 7 ? ["var(--approved-bg)", "var(--approved-fg)", "green"] : days <= 10 ? ["var(--review-bg)", "var(--review-fg)", "orange"] : ["var(--coral-wash)", "var(--coral-dark)", "critical"];
-  // the acknowledgement inbox — new queries + acknowledged-but-not-yet-assigned
-  const lab = reqs.filter(r => PRE_ACK.includes(r.status) || (r.status === "Acknowledged" && !r.assigned));
+  // the acknowledgement inbox — purely new queries awaiting the lab's "seen & reviewed".
+  // Once acknowledged, a requirement moves to Under evaluation (chemist assignment is optional, done there / at planning).
+  const lab = reqs.filter(r => PRE_ACK.includes(r.status));
   const fams = ["all", ...Array.from(new Set(lab.map(r => r.categoryGroup).filter(Boolean)))];
   const brands = Array.from(new Set(lab.map(r => r.brand)));
   const spocs = Array.from(new Set(lab.map(r => r.submittedBy)));
-  const needsAck = r => PRE_ACK.includes(r.status);
-  const ackNoAssign = r => r.status === "Acknowledged" && !r.assigned;
   const filtered = lab.filter(r =>
     (fam === "all" || r.categoryGroup === fam) && (brand === "all" || r.brand === brand) &&
     (type === "all" || r.projectType === type) && (spoc === "all" || r.submittedBy === spoc) &&
-    (need === "all" || (need === "assign" ? ackNoAssign(r) : needsAck(r))) &&
     (!q || (r.id + " " + r.brand + " " + r.title).toLowerCase().includes(q.toLowerCase())));
-  // for the lab manager, float rows awaiting chemist assignment to the top — that's their action
-  const rows = window.vvipSort(filtered).sort((a, b) => isLM ? (ackNoAssign(b) ? 1 : 0) - (ackNoAssign(a) ? 1 : 0) : 0);
+  const rows = window.vvipSort(filtered);
   const stChip = s => <StatusPill status={s} size="sm" />;
   return <div className="col gap-4">
-    <PageHead title="New requirements" sub={isLM ? "Incoming queries awaiting acknowledgement & chemist assignment. Once assigned, they move to the Query desk." : "New queries to acknowledge (seen & reviewed). The lab manager then assigns each to a chemist; live work lives on the Query desk."} />
+    <PageHead title="New requirements" sub={isLM ? "Fresh requirements awaiting the lab's acknowledgement. Once the lab tech acknowledges, they move to Under evaluation." : "New requirements to acknowledge (seen & reviewed). Acknowledging moves it to Under evaluation for the doability review."} />
     {/* filters — all left-aligned dropdowns + search */}
     <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
       <div style={{ position: "relative", width: 230 }}><span style={{ position: "absolute", left: 10, top: 9 }}><Icon name="search" size={15} color="var(--muted)" /></span>
@@ -164,13 +161,9 @@ function LB02_Incoming({ nav, role }) {
       <select className="select" style={{ width: 140, height: 34, fontSize: 12 }} value={brand} onChange={e => setBrand(e.target.value)}><option value="all">All brands</option>{brands.map(b => <option key={b}>{b}</option>)}</select>
       <select className="select" style={{ width: 120, height: 34, fontSize: 12 }} value={type} onChange={e => setType(e.target.value)}><option value="all">All types</option>{["EPD", "REN", "TT", "NPD"].map(t => <option key={t}>{t}</option>)}</select>
       <select className="select" style={{ width: 150, height: 34, fontSize: 12 }} value={spoc} onChange={e => setSpoc(e.target.value)}><option value="all">All SPOCs</option>{spocs.map(s => <option key={s}>{s}</option>)}</select>
-      {isLM && <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 3, borderRadius: 9, marginLeft: "auto" }}>
-        {[["assign", "Needs assignment", lab.filter(ackNoAssign).length], ["ack", "Awaiting tech ack", lab.filter(needsAck).length], ["all", "All", lab.length]].map(([k, l, n]) => { const on = need === k;
-          return <button key={k} onClick={() => setNeed(k)} className="btn btn-sm" style={{ background: on ? "var(--surface)" : "transparent", color: on ? "var(--brand)" : "var(--muted)", boxShadow: on ? "var(--sh-sm)" : "none", border: "none", fontSize: 11.5 }}>{l} <span style={{ opacity: .7 }}>({n})</span></button>; })}
-      </div>}
     </div>
     <div className="row between wrap gap-2">
-      <div className="body-sm" style={{ fontSize: 12 }}>{lab.filter(needsAck).length} awaiting acknowledgement · {lab.filter(ackNoAssign).length} acknowledged, awaiting chemist assignment</div>
+      <div className="body-sm" style={{ fontSize: 12 }}>{lab.length} awaiting acknowledgement</div>
       <div className="row gap-3" style={{ alignItems: "center" }}>
         <span className="label" style={{ fontSize: 8.5 }}>Last updated · just now</span>
         <button className="btn btn-sm btn-secondary" onClick={() => setFull(f => !f)}>{full ? "Compact columns" : "Full columns"}</button>
@@ -192,20 +185,17 @@ function LB02_Incoming({ nav, role }) {
               <td style={{ padding: "8px 12px" }}><ProjectTypePill type={r.projectType} /></td>
               <td style={{ padding: "8px 12px" }}><span className="mono" style={{ fontSize: 11 }}>{r.currentNcl || "—"}</span></td>
               <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{stChip(r.status)}{r.labStage ? <span className="body-sm" style={{ fontSize: 10, display: "block", color: "var(--brand)", marginTop: 2 }}>{r.labStage}</span> : null}</td>
-              <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.tracker || <span style={{ color: "var(--muted)" }}>—</span>}</td>
+              <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.tracker || techOfReq(r)}</td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.submittedBy}</td>
               {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{(r.submittedAt || "—").replace(" 2026", "")}</td>}
               {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>{(r.targetSampleDate || "—").replace(" 2026", "")}</td>}
               <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>{["Archived", "Client approved", "Rejected"].includes(r.status) ? <span className="body-sm">—</span> : (() => { const z = tatZone(r.age || 0); return <span className="pill pill-sm" style={{ background: z[0], color: z[1], fontWeight: 700 }} title={(r.age || 0) + " days in pipeline"}>{z[2]}</span>; })()}</td>
               {full && <td style={{ padding: "8px 12px", fontSize: 11, color: "var(--muted)", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(r.briefDetail || {}).notes || "—"}</td>}
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap", position: "sticky", right: 0, background: ackNoAssign(r) && isLM ? "var(--review-bg)" : "var(--surface)", boxShadow: "-8px 0 12px -8px rgba(0,0,0,.12)" }}>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap", position: "sticky", right: 0, background: "var(--surface)", boxShadow: "-8px 0 12px -8px rgba(0,0,0,.12)" }}>
                 <span className="row gap-2" style={{ alignItems: "center", justifyContent: "flex-end" }}>
                   <button className="btn btn-sm btn-secondary" onClick={() => setPopup({ id: r.id, tab: "brief" })} title="View initial requirement"><Icon name="note" size={12} /></button>
-                  {needsAck(r) ? (isLM ? <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>awaiting tech ack</span>
-                      : <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.acknowledge(r.id, techOfReq(r))}><Icon name="check" size={12} /> Acknowledge</button>)
-                    : ackNoAssign(r) ? (isLM ? <ChemistAssign req={r} />
-                      : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>awaiting LM assignment</span>)
-                    : <button className="btn btn-sm btn-ghost" onClick={() => nav(EVAL_ST.includes(r.status) ? "LB-EVAL" : "LB-03", { reqId: r.id })}>Open <Icon name="arrowRight" size={12} /></button>}
+                  {isLM ? <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>awaiting tech ack</span>
+                    : <button className="btn btn-sm" style={{ background: "var(--approved-fg)", color: "#fff" }} onClick={() => window.NaturisStore.acknowledge(r.id, techOfReq(r))}><Icon name="check" size={12} /> Acknowledge</button>}
                 </span>
               </td>
             </tr>)}
@@ -285,11 +275,11 @@ function DecisionPanel({ req, nav }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const dateOk = date && date >= todayStr;
   return <div className="card">
-    <SectionTitle sub="Accept with a date · Decline with a reason · Raise a query to the SPOC">Decision</SectionTitle>
+    <SectionTitle sub="Accept with a date · Decline with a reason · Ask the SPOC a question">Decision</SectionTitle>
     {!mode && <div className="row gap-2">
       <button className="btn" onClick={() => setMode("accept")}><Icon name="check" size={15} /> Accept</button>
       <button className="btn btn-destructive" onClick={() => setMode("decline")}><Icon name="x" size={15} /> Decline</button>
-      <button className="btn btn-secondary" onClick={() => setMode("query")}><Icon name="note" size={15} /> Raise query</button>
+      <button className="btn btn-secondary" onClick={() => setMode("query")}><Icon name="note" size={15} /> Ask a question</button>
     </div>}
     {mode === "accept" && <div className="col gap-2">
       <Field label="Tentative sample / completion date"><input className="input" type="date" min={todayStr} value={date} onChange={e => setDate(e.target.value)} /></Field>
@@ -302,8 +292,8 @@ function DecisionPanel({ req, nav }) {
       <div className="row gap-2">{window.ConfirmBtn ? <window.ConfirmBtn disabled={!reason.trim()} confirmLabel="Click again — decline this lead" onConfirm={() => window.NaturisStore.decline(req.id, reason.trim(), techOfReq(req))}>Confirm decline</window.ConfirmBtn> : <button className="btn btn-destructive" disabled={!reason.trim()} onClick={() => window.NaturisStore.decline(req.id, reason.trim(), techOfReq(req))}>Confirm decline</button>}<button className="btn btn-ghost btn-sm" onClick={() => setMode(null)}>Cancel</button></div>
     </div>}
     {mode === "query" && <div className="col gap-2">
-      <Field label="Query to Sales SPOC"><textarea className="textarea" value={query} onChange={e => setQuery(e.target.value)} placeholder="e.g. 5% vitamin C not feasible in this base — confirm 3% or change base." style={{ minHeight: 70 }} /></Field>
-      <div className="row gap-2"><button className="btn" disabled={!query.trim()} onClick={() => window.NaturisStore.raiseQuery(req.id, query.trim(), techOfReq(req))}><Icon name="note" size={15} /> Send query</button><button className="btn btn-ghost btn-sm" onClick={() => setMode(null)}>Cancel</button></div>
+      <Field label="Question for the Sales SPOC"><textarea className="textarea" value={query} onChange={e => setQuery(e.target.value)} placeholder="e.g. 5% vitamin C not feasible in this base — confirm 3% or change base." style={{ minHeight: 70 }} /></Field>
+      <div className="row gap-2"><button className="btn" disabled={!query.trim()} onClick={() => window.NaturisStore.raiseQuery(req.id, query.trim(), techOfReq(req))}><Icon name="note" size={15} /> Send question</button><button className="btn btn-ghost btn-sm" onClick={() => setMode(null)}>Cancel</button></div>
     </div>}
   </div>;
 }
@@ -311,7 +301,7 @@ function DecisionPanel({ req, nav }) {
 function LB_Eval({ params, nav }) {
   window.useStore();
   const reqs = DL.REQUIREMENTS;
-  const list = window.vvipSort(reqs.filter(r => EVAL_ST.includes(r.status) && (r.assigned || r.tracker)));
+  const list = window.vvipSort(reqs.filter(r => EVAL_ST.includes(r.status))); // acknowledged flows straight in; chemist assignment is optional
   const [openId, setOpenId] = useState(params.reqId || null);
   const [briefOpen, setBriefOpen] = useState(false);
   const [q, setQ] = useState(""); const [fam, setFam] = useState("all"); const [brand, setBrand] = useState("all"); const [type, setType] = useState("all");
@@ -327,8 +317,15 @@ function LB_Eval({ params, nav }) {
         <div className="row between" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div><div className="row gap-2" style={{ marginBottom: 6, flexWrap: "wrap" }}>{req.vvip && <VVIPBadge size="sm" />}<ProjectTypePill type={req.projectType} showLabel /><span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{req.id}</span><StatusPill status={req.status} /></div>
             <div className="h2" style={{ fontSize: 24 }}><span style={{ color: "var(--brand-mid)" }}>{req.brand}</span> · {req.title}</div>
-            <div className="body-sm">SPOC {req.submittedBy} · chemist {req.tracker || (DL.LAB_DESKS[req.projectType] || {}).tech}</div></div>
+            <div className="body-sm">SPOC {req.submittedBy} · default desk {(DL.LAB_DESKS[req.projectType] || {}).tech}</div></div>
           <button className="btn" style={{ background: "var(--grad-brand)", boxShadow: "0 4px 12px rgba(18,57,95,.25)" }} onClick={() => setBriefOpen(true)}><Icon name="note" size={15} /> View initial requirement</button>
+        </div>
+        {/* assigning a specific chemist is optional — the lab manager recommends one only if needed */}
+        <div className="row between wrap gap-2" style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "var(--page)" }}>
+          <div className="row gap-2" style={{ alignItems: "center" }}><Icon name="team" size={15} color="var(--brand-accent)" />
+            <div><div style={{ fontSize: 13, fontWeight: 700 }}>Chemist {req.assigned ? "assigned" : "— optional"}</div>
+              <div className="body-sm" style={{ fontSize: 11.5 }}>{req.assigned ? "Lab manager recommended a specific chemist." : "Defaults to the desk chemist. Assign a specific one only if needed."}</div></div></div>
+          {req.assigned ? <span className="pill" style={{ background: "var(--brand)", color: "#fff", fontWeight: 700 }}><Avatar name={req.tracker} size={18} /> {req.tracker}</span> : <ChemistAssign req={req} />}
         </div>
       </div>
       <div className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr", alignItems: "start" }}>
@@ -386,6 +383,8 @@ function LB_Eval({ params, nav }) {
 function DispatchPanel({ req }) {
   const [photos, setPhotos] = useState([]); const [generated, setGenerated] = useState(false);
   const [note, setNote] = useState("");
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [shipIdx, setShipIdx] = useState(0);
   const [docket, setDocket] = useState("");
   const [sentTo, setSentTo] = useState((req.briefDetail || {}).shipName || "");
   const [pcs, setPcs] = useState("2");
@@ -395,17 +394,70 @@ function DispatchPanel({ req }) {
   const [ingList, setIngList] = useState(false);
   const flow = req.status === "Sent to client" || POST.includes(req.status) ? "Sent" : req.status === "Dispatch awaiting SPOC approval" ? "Awaiting SPOC approval" : "Drafted";
   const steps = ["Drafted", "Awaiting SPOC approval", "Sent"];
-  const addr = (req.briefDetail && req.briefDetail.shipping) ? "On file" : "";
+  // a client can have several offices — the lab picks which address this dispatch goes to (from the address book)
+  const myAddrs = (window.NaturisData.SHIP_ADDRESSES || []).filter(a => a.client === req.brand && a.status !== "discarded");
+  const shipAddr = myAddrs[shipIdx] || myAddrs[0] || null;
+  const addr = shipAddr ? "ok" : "";
+  const dd = req.dispatch || {};
+  const dv = (k, fb) => dd[k] || fb || "";
+  function buildEmail() {
+    return [
+      "To: " + (req.submittedBy || "Sales SPOC") + " (Sales SPOC)",
+      "Subject: Sample dispatched — " + req.brand + " · " + req.title + " (" + req.id + ")",
+      "",
+      "Hi " + (req.submittedBy || "team") + ",",
+      "",
+      "The following sample has been dispatched from the Naturis lab. Please share with the client.",
+      "",
+      "Client / Brand : " + req.brand,
+      "Product        : " + req.title,
+      "Batch / NCL    : " + (req.currentNcl || req.id),
+      "Pieces         : " + dv("pcs", pcs) || "—",
+      "Packaging      : " + (req.packaging || "—"),
+      "Courier        : " + (dv("courier", courier) || "—") + (dv("docket", docket) ? "   ·   Docket " + dv("docket", docket) : ""),
+      "Sent to        : " + (shipAddr ? shipAddr.contact : (dv("sentTo", sentTo) || (req.briefDetail || {}).shipName || "—")),
+      "Ship address   : " + (shipAddr ? shipAddr.to.join(", ") : "—"),
+      "Photos         : " + (dd.photos || photos.length || 0) + " product photo(s) attached",
+      "Enclosures     : " + [(dd.marketingBrief || mktBrief) ? "Marketing brief" : null, (dd.ingredientList || ingList) ? "Ingredient list" : null].filter(Boolean).join(", ") || "—",
+      "",
+      "Purpose: " + (dv("purpose", purpose) || "Samples for evaluation"),
+      (dv("note", note) ? "\nNote from the lab: " + dv("note", note) : ""),
+      "",
+      "Regards,",
+      techOfReq(req) + " · Naturis Lab",
+    ].join("\n");
+  }
   return <div className="card">
     <SectionTitle sub="Generated note + product photos → SPOC approval">Dispatch</SectionTitle>
-    <div className="row gap-2" style={{ marginBottom: 16 }}>
-      {steps.map((s, i) => <React.Fragment key={s}><span className="pill pill-sm" style={{ background: steps.indexOf(flow) >= i ? "var(--brand)" : "var(--brand-wash)", color: steps.indexOf(flow) >= i ? "#fff" : "var(--muted)" }}>{s}</span>{i < 2 && <Icon name="chevron" size={12} color="var(--border-strong)" />}</React.Fragment>)}
+    <div className="row between wrap gap-2" style={{ marginBottom: 16 }}>
+      <div className="row gap-2">{steps.map((s, i) => <React.Fragment key={s}><span className="pill pill-sm" style={{ background: steps.indexOf(flow) >= i ? "var(--brand)" : "var(--brand-wash)", color: steps.indexOf(flow) >= i ? "#fff" : "var(--muted)" }}>{s}</span>{i < 2 && <Icon name="chevron" size={12} color="var(--border-strong)" />}</React.Fragment>)}</div>
+      <button className="btn btn-secondary btn-sm" onClick={() => setEmailOpen(o => !o)}><Icon name="note" size={13} /> {emailOpen ? "Hide email draft" : "Generate email to SPOC"}</button>
     </div>
+    {emailOpen && (() => { const txt = buildEmail(); return <div style={{ padding: 12, borderRadius: 10, background: "var(--page)", marginBottom: 14 }}>
+      <div className="row between" style={{ marginBottom: 8 }}><span className="label">Auto-generated dispatch email → {req.submittedBy}</span>
+        <div className="row gap-2">
+          <button className="btn btn-sm btn-secondary" onClick={() => { try { navigator.clipboard && navigator.clipboard.writeText(txt); } catch (e) {} }}><Icon name="note" size={12} /> Copy</button>
+          <button className="btn btn-sm btn-secondary" onClick={() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/plain" })); a.download = "dispatch-email-" + req.id + ".txt"; a.click(); URL.revokeObjectURL(a.href); }}><Icon name="download" size={12} /> Download</button>
+        </div>
+      </div>
+      <textarea className="textarea mono" readOnly value={txt} style={{ minHeight: 230, fontSize: 11.5, width: "100%" }} />
+      <div className="body-sm" style={{ fontSize: 11, marginTop: 6, color: "var(--muted)" }}>Copy or download and send to the SPOC — they forward it to the client.</div>
+    </div>; })()}
     <div className="grid grid-2 gap-3" style={{ marginBottom: 14 }}>
       {[["Client", req.brand], ["Product", req.title], ["Packaging", req.packaging], ["Qty", req.moq]].map(([l, v]) => <div key={l}><div className="label">{l}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div></div>)}
     </div>
-    <div style={{ padding: "8px 12px", borderRadius: 8, background: addr ? "var(--page)" : "var(--coral-wash)", marginBottom: 14 }}>
-      <div className="row gap-2"><Icon name="dispatch" size={14} color={addr ? "var(--muted)" : "var(--coral-dark)"} /><span className="body-sm" style={{ fontSize: 12, color: addr ? "var(--ink)" : "var(--coral-dark)" }}>{addr ? "Shipping address from address book" : "No shipping address — required before send"}</span></div>
+    <div style={{ padding: "10px 12px", borderRadius: 8, background: addr ? "var(--page)" : "var(--coral-wash)", marginBottom: 14 }}>
+      {shipAddr ? <div className="col gap-2">
+        <div className="row between wrap gap-2" style={{ alignItems: "center" }}>
+          <span className="label">Ship to (from the address book)</span>
+          {myAddrs.length > 1 && <select className="select" style={{ height: 30, fontSize: 11.5, maxWidth: 280 }} value={shipIdx} onChange={e => setShipIdx(+e.target.value)}>
+            {myAddrs.map((a, i) => <option key={i} value={i}>{a.to[0]} · {(a.to[1] || "")}</option>)}
+          </select>}
+        </div>
+        <div className="row gap-2" style={{ alignItems: "flex-start" }}><Icon name="dispatch" size={14} color="var(--brand-accent)" style={{ marginTop: 2 }} />
+          <div className="body-sm" style={{ fontSize: 12 }}><b>{shipAddr.contact}</b><br />{shipAddr.to.join(", ")}</div></div>
+        {myAddrs.length > 1 && <span className="body-sm" style={{ fontSize: 10.5, color: "var(--muted)" }}>{myAddrs.length} addresses on file for {req.brand} — pick the right office.</span>}
+      </div> : <div className="row gap-2"><Icon name="dispatch" size={14} color="var(--coral-dark)" /><span className="body-sm" style={{ fontSize: 12, color: "var(--coral-dark)" }}>No address on file for {req.brand} — add one in the Address book before sending.</span></div>}
     </div>
     {flow !== "Sent" && <div onClick={() => setPhotos(p => [...p, p.length + 1])} style={{ border: "2px dashed " + (photos.length ? "var(--border)" : "var(--coral)"), borderRadius: 10, padding: 18, textAlign: "center", cursor: "pointer", marginBottom: 14 }}>
       <Icon name="camera" size={20} color={photos.length ? "var(--brand-light)" : "var(--coral)"} />
@@ -438,8 +490,26 @@ function DispatchPanel({ req }) {
   </div>;
 }
 
+// --- placeholder AI generators (stubs — refined once Dhruv shares the brief DB / actives / format) ---
+function genIngredientList(req) {
+  const ings = [...(req.nonNegotiable || []), ...(req.goodToHave || [])].map(a => a.ingredient).filter(Boolean);
+  const inci = ["Aqua", "Glycerin", ...ings, "Cetearyl Alcohol", "Caprylic/Capric Triglyceride", "Phenoxyethanol", "Parfum"];
+  return "INGREDIENT LIST — " + req.brand + " · " + req.title + "  (" + (req.currentNcl || req.id) + ")\n\n" +
+    "INCI, in descending order of concentration:\n\n" + inci.join(", ") + ".\n\n" +
+    "[Placeholder output. The final list is computed from the uploaded formulation sheet — cosmetic/INCI names mapped, then ordered high → low % composition — once the lab shares the working format.]";
+}
+function genMarketingBrief(req) {
+  const actives = [...(req.nonNegotiable || []), ...(req.goodToHave || [])].map(a => a.ingredient).filter(Boolean);
+  const benefits = (req.keyBenefits || (req.briefDetail || {}).benefits || []);
+  return "MARKETING BRIEF — " + req.brand + " · " + req.title + "\n\n" +
+    "Positioning: a " + (req.category || "product") + " formulated to help " + (benefits[0] || "address the brand's core concern") + ".\n\n" +
+    "Key claims (soft, label-safe):\n" + (actives.length ? actives : ["the hero active"]).map(a => "• Powered by " + a + " — helps support, aid and boost visible results.").join("\n") + "\n\n" +
+    "Texture & experience: lightweight, fast-absorbing, non-greasy finish.\n\n" +
+    "[Placeholder tone. Claims will be tightened against the actives/label-claim sheet and learned from the existing marketing-brief database once loaded.]";
+}
 function PostApproval({ req }) {
   window.useStore();
+  const [gen, setGen] = useState(null); // { key, text }
   const defaultStab = req.projectType === "NPD" ? true : req.projectType === "EPD" ? false : "prompt";
   const stab = req.stability; const del = req.deliverables || {}; const stabPassed = stab && stab.status === "passed";
   return <div className="card">
@@ -457,12 +527,23 @@ function PostApproval({ req }) {
           {!stabPassed && <button className="btn btn-secondary btn-sm" style={{ marginTop: 10 }} onClick={() => window.NaturisStore.advanceStability(req.id, techOfReq(req))}><Icon name="arrowRight" size={13} /> Log next month</button>}
         </div>}
       </div>
-      {[["ingredient", "Ingredient sheet", "INCI list for the client"], ["marketing", "Marketing brief", "Claims + usage the brand can market with"]].map(([key, l, sub]) => {
+      {[["ingredient", "Ingredient sheet", "INCI list for the client", genIngredientList], ["marketing", "Marketing brief", "Claims + usage the brand can market with", genMarketingBrief]].map(([key, l, sub, builder]) => {
         const d = del[key];
-        return <div key={key} className="row between" style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
-          <div><div style={{ fontWeight: 600, fontSize: 13.5 }}>{l}</div><div className="body-sm" style={{ fontSize: 12 }}>{sub}</div></div>
-          {d && d.done ? <span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)" }}><Icon name="check" size={11} color="var(--approved-fg)" /> Submitted</span>
-            : <button className="btn btn-secondary btn-sm" onClick={() => window.NaturisStore.setDeliverable(req.id, key, techOfReq(req))}><Icon name="note" size={13} /> Submit</button>}
+        return <div key={key} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
+          <div className="row between">
+            <div><div style={{ fontWeight: 600, fontSize: 13.5 }}>{l} <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)", fontWeight: 700 }}>AI · beta</span></div><div className="body-sm" style={{ fontSize: 12 }}>{sub}</div></div>
+            <div className="row gap-2">
+              <button className="btn btn-secondary btn-sm" onClick={() => setGen({ key, text: builder(req) })}><Icon name="note" size={13} /> Generate (AI)</button>
+              {d && d.done ? <span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)" }}><Icon name="check" size={11} color="var(--approved-fg)" /> Submitted</span>
+                : <button className="btn btn-sm" onClick={() => window.NaturisStore.setDeliverable(req.id, key, techOfReq(req))}>Mark submitted</button>}
+            </div>
+          </div>
+          {gen && gen.key === key && <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: "var(--page)" }}>
+            <div className="row between" style={{ marginBottom: 6 }}><span className="label">Generated draft — review & edit before sending</span>
+              <button className="btn btn-sm btn-secondary" onClick={() => { try { navigator.clipboard && navigator.clipboard.writeText(gen.text); } catch (e) {} }}><Icon name="note" size={12} /> Copy</button></div>
+            <textarea className="textarea" defaultValue={gen.text} style={{ minHeight: 180, fontSize: 11.5, width: "100%" }} />
+            <div className="body-sm" style={{ fontSize: 10.5, marginTop: 4, color: "var(--muted)" }}>Placeholder generation — wired to the real brief DB / actives sheet / formulation format once shared.</div>
+          </div>}
         </div>;
       })}
       {stabPassed && del.ingredient && del.ingredient.done && del.marketing && del.marketing.done &&
@@ -542,18 +623,27 @@ function WipDetail({ req, nav, role }) {
         <div className="col" style={{ marginTop: 8 }}>
           {LSTAGES.map((st, si) => { const onSt = curLS === st; const doneSt = curIdx > si;
             const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt; const locked = st === "Dispatched"; const clickable = isLab && !locked;
-            return <div key={st} role={clickable ? "button" : undefined} onClick={clickable ? () => setStage(st) : undefined}
-              onMouseEnter={clickable ? e => { if (!onSt) e.currentTarget.style.background = "var(--brand-wash)"; } : undefined}
-              onMouseLeave={clickable ? e => { e.currentTarget.style.background = onSt ? "var(--brand-wash)" : "transparent"; } : undefined}
-              className="row gap-3" style={{ alignItems: "center", padding: "9px 8px", borderRadius: 8, cursor: clickable ? "pointer" : "default", background: onSt ? "var(--brand-wash)" : "transparent", borderBottom: si < LSTAGES.length - 1 ? "1px solid var(--border)" : "none", transition: "background .1s" }}>
-              <span style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                background: onSt ? "var(--brand)" : doneSt ? "var(--approved-bg)" : "var(--page)", border: onSt ? "none" : "1px solid var(--border)" }}>
-                {doneSt ? <Icon name="check" size={12} color="var(--approved-fg)" /> : onSt ? <span style={{ width: 7, height: 7, borderRadius: 999, background: "#fff" }} /> : <span className="body-sm" style={{ fontSize: 9, color: "var(--muted)" }}>{si + 1}</span>}</span>
-              <span style={{ fontSize: 13, fontWeight: reached ? 700 : 500, color: onSt ? "var(--brand)" : reached ? "var(--ink)" : "var(--muted)" }}>{st}</span>
-              {onSt && <span className="pill pill-sm" style={{ background: "var(--brand)", color: "#fff", fontWeight: 700 }}>current</span>}
-              {locked && <span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)", fontWeight: 600 }} title="Set automatically when the SPOC approves dispatch"><Icon name="lock" size={9} color="var(--muted)" /> on SPOC approval</span>}
-              <div className="grow" />
-              {meta && <span className="body-sm" style={{ fontSize: 11, color: "var(--grey)" }}>{meta.at} · {meta.by}</span>}
+            return <div key={st} style={{ borderBottom: si < LSTAGES.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <div role={clickable ? "button" : undefined} onClick={clickable ? () => setStage(st) : undefined}
+                onMouseEnter={clickable ? e => { if (!onSt) e.currentTarget.style.background = "var(--brand-wash)"; } : undefined}
+                onMouseLeave={clickable ? e => { e.currentTarget.style.background = onSt ? "var(--brand-wash)" : "transparent"; } : undefined}
+                className="row gap-3" style={{ alignItems: "center", padding: "9px 8px", borderRadius: 8, cursor: clickable ? "pointer" : "default", background: onSt ? "var(--brand-wash)" : "transparent", transition: "background .1s" }}>
+                <span style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  background: onSt ? "var(--brand)" : doneSt ? "var(--approved-bg)" : "var(--page)", border: onSt ? "none" : "1px solid var(--border)" }}>
+                  {doneSt ? <Icon name="check" size={12} color="var(--approved-fg)" /> : onSt ? <span style={{ width: 7, height: 7, borderRadius: 999, background: "#fff" }} /> : <span className="body-sm" style={{ fontSize: 9, color: "var(--muted)" }}>{si + 1}</span>}</span>
+                <span style={{ fontSize: 13, fontWeight: reached ? 700 : 500, color: onSt ? "var(--brand)" : reached ? "var(--ink)" : "var(--muted)" }}>{st}</span>
+                {onSt && <span className="pill pill-sm" style={{ background: "var(--brand)", color: "#fff", fontWeight: 700 }}>current</span>}
+                {locked && <span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)", fontWeight: 600 }} title="Set automatically when the SPOC approves dispatch"><Icon name="lock" size={9} color="var(--muted)" /> on SPOC approval</span>}
+                <div className="grow" />
+                {meta && <span className="body-sm" style={{ fontSize: 11, color: "var(--grey)" }}>{meta.at} · {meta.by}</span>}
+              </div>
+              {/* optional note (e.g. QC remark) — editable by the lab tech on reached stages, read-only elsewhere */}
+              {isLab && reached ? <div className="row gap-2" style={{ alignItems: "center", padding: "0 8px 8px 33px" }}>
+                <Icon name="note" size={12} color="var(--muted)" />
+                <input className="input" style={{ height: 30, fontSize: 12, flex: 1, maxWidth: 520 }} placeholder="Add a note for this stage (optional) — e.g. QC: viscosity ok, pH 5.4"
+                  defaultValue={(meta || {}).note || ""} onClick={e => e.stopPropagation()}
+                  onBlur={e => { const v = e.target.value.trim(); if (v !== (((meta || {}).note) || "")) window.NaturisStore.setLabStageNote(req.id, st, v, techOfReq(req)); }} />
+              </div> : (meta && meta.note) ? <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)", padding: "0 8px 8px 33px" }}><Icon name="note" size={11} color="var(--muted)" /> {meta.note}</div> : null}
             </div>; })}
         </div>
       </div>;
@@ -754,7 +844,7 @@ function LB06_Stability({ nav }) {
   // live in-stability requirements first, then the seeded historical log
   const live = D.REQUIREMENTS.filter(r => r.status === "In stability").map((r, i) => {
     const st = r.stability || {}; const cat = D.fitCategory ? D.fitCategory(D.fitFinal ? D.fitFinal(D.FIT_SCORES[(D.ACCOUNTS.find(a => a.name === r.brand) || {}).id] || {}) : 6) : { label: "" };
-    return { sno: "L" + (i + 1), charged: (r.dispatchedOn || "—").replace(" 2026", ""), product: r.title, batch: r.currentNcl || r.id, mfg: "—", initial: (r.dispatchedOn || "—").replace(" 2026", ""), m: ["", "", "", "", "", ""], done: st.month || 1, location: "NC/RD/live", client: r.brand, type: (st.months || 3) + "-mo", grade: (cat && cat.label || "—").replace(" fit", ""), condition: "RT + 40/75°C", live: true };
+    return { sno: "L" + (i + 1), reqId: r.id, charged: (r.dispatchedOn || "—").replace(" 2026", ""), product: r.title, batch: r.currentNcl || r.id, mfg: "—", initial: (r.dispatchedOn || "—").replace(" 2026", ""), m: st.m || ["", "", "", "", "", ""], done: st.month || 1, location: "NC/RD/live", client: r.brand, type: (st.months || 3) + "-mo", grade: (cat && cat.label || "—").replace(" fit", ""), condition: "RT + 40/75°C", live: true };
   });
   const rows = [...live, ...(D.STABILITY_RUNS || [])];
   return <div className="col gap-4">
@@ -774,6 +864,10 @@ function LB06_Stability({ nav }) {
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.mfg}</td>
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.initial}</td>
             {[0, 1, 2, 3, 4, 5].map(k => { const done = k < r.done; const dt = (r.m || [])[k];
+              // live in-stability runs are editable: the lab tech logs the actual pull date per month
+              if (r.reqId) return <td key={k} style={{ padding: "4px 4px", textAlign: "center", background: dt ? "var(--approved-bg)" : "var(--page)" }}>
+                <input type="date" className="input" style={{ height: 26, fontSize: 9.5, width: 116, padding: "2px 4px", border: "1px solid var(--border)" }} value={dt || ""} title={"Month " + (k + 1) + " pull date"}
+                  onChange={e => window.NaturisStore.setStabilityMonth(r.reqId, k, e.target.value)} /></td>;
               return <td key={k} style={{ padding: "6px 8px", fontSize: 10, whiteSpace: "nowrap", textAlign: "center", background: done ? "var(--approved-bg)" : "var(--page)", color: done ? "var(--approved-fg)" : "var(--border-strong)", fontWeight: done ? 700 : 400 }}>{done ? (dt || "✓") : (dt || "—")}</td>; })}
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{r.type}</td>
             <td style={{ padding: "6px 10px" }}><span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)", fontWeight: 700 }}>{r.grade}</span></td>
