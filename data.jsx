@@ -699,6 +699,7 @@ window.NaturisStore = {
   setLabStage(id, stage, by) { const r = this.get(id); if (r) { r.labStage = stage; r.labStageLog = r.labStageLog || {}; r.labStageLog[stage] = { by: by, at: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }) }; const core = window.NaturisData.LAB_STAGE_TO_STATUS[stage]; if (core && ["Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch"].includes(r.status)) r.status = core; this.log(id, { kind: "status", icon: "work", stage: stage, actor: by, role: "Lab", at: "just now", detail: "Live lab status → " + stage, current: true }); this._notify(id, "dispatch", "info", id + " — " + stage, "Live lab status updated. Visible to sales.", "NR-04"); } _bump(); },
   setPrePO(id, key, val, by) { const r = this.get(id); if (r) { r.prePO = r.prePO || {}; r.prePO[key] = val; const item = (window.NaturisData.PRE_PO_ITEMS.find(x => x[0] === key) || [])[1] || key; this.log(id, { kind: val ? "approval" : "status", icon: val ? "check" : "work", stage: "Pre-PO checklist", actor: by, role: "System", at: "just now", detail: item + (val ? " ✓ confirmed" : " un-ticked") }); const all = window.NaturisData.PRE_PO_ITEMS.every(x => r.prePO[x[0]]); if (all && !r.prePOComplete) { r.prePOComplete = true; this.log(id, { kind: "approval", icon: "star", stage: "Customer-ready", actor: "System", role: "System", at: "just now", detail: "Pre-PO checklist complete — customer-ready, awaiting PO.", current: true }); this._notify(id, "dispatch", "info", id + " is customer-ready — PO awaited", "All pre-PO checks done. Follow up for the PO.", "NR-04"); } if (!all) r.prePOComplete = false; } _bump(); },
   setVvipOverride(id, val, by) { const r = this.get(id); if (r) { this.addAudit({ actor: by, role: "Management", action: "VVIP override", target: id, field: "vvip", before: String(r.vvip), after: String(val), note: "Management override from command centre" }); r.vvip = val; this.log(id, { kind: "status", icon: "star", stage: "VVIP " + (val ? "set" : "removed"), actor: by, role: "Management", at: "just now", detail: "Management " + (val ? "marked this VVIP" : "removed VVIP") + " (override)." }); } _bump(); },
+  addShipAddress(rec) { (window.NaturisData.SHIP_ADDRESSES = window.NaturisData.SHIP_ADDRESSES || []).unshift(rec); _bump(); },
   saveProfile(roleKey, patch, by) { const p = window.NaturisData.PROFILE_OF[roleKey]; if (p) { Object.assign(p, patch); this.addAudit({ actor: by || p.name, role: "Self", action: "Profile updated", target: p.empId, field: Object.keys(patch).join(", "), before: "—", after: "updated", note: "Edited from profile screen" }); } _bump(); },
   addFlag(id, flag) { const r = this.get(id); if (r) { flag.id = flag.id || ("F-" + (++_evSeq)); flag.resolved = false; r.flags.push(flag); r.manualFlag = true; this.log(id, { kind: "flag", icon: "flag", stage: "Flag", actor: flag.raisedBy, role: flag.raisedByRole || "SPOC", at: "just now", severity: flag.severity, detail: (flag.typeLabel || flag.type) + ": " + flag.text }); NOTIFICATIONS.unshift({ id: "N-" + (++_evSeq), type: "flag", severity: flag.severity, title: (flag.typeLabel || flag.type) + " flag on " + id, body: flag.text, at: "just now", read: false, req: id, rule: "NR-05" }); } _bump(); },
   setSeverity(id, flagId, severity) { const r = this.get(id); const f = r && r.flags.find(x => x.id === flagId); if (f) f.severity = severity; _bump(); },
@@ -1016,7 +1017,7 @@ var NATURIS_STATE_KEY = "naturis.state.v9";
 function _persist() {
   try {
     localStorage.setItem(NATURIS_STATE_KEY, JSON.stringify({
-      seq: _seq, eseq: _evSeq, profiles: window.NaturisData.PROFILE_OF, reqs: REQUIREMENTS, tl: REQUIREMENT_TIMELINES, notifs: NOTIFICATIONS,
+      seq: _seq, eseq: _evSeq, profiles: window.NaturisData.PROFILE_OF, addr: window.NaturisData.SHIP_ADDRESSES, reqs: REQUIREMENTS, tl: REQUIREMENT_TIMELINES, notifs: NOTIFICATIONS,
       audit: AUDIT.slice(), fit: FIT_SCORES, ci: window.NaturisData.CI_DATA }));
   } catch (e) {}
 }
@@ -1036,6 +1037,7 @@ function _persist() {
     if (st.seq) if (st.profiles) Object.keys(st.profiles).forEach(function (k) { Object.assign(window.NaturisData.PROFILE_OF[k] = window.NaturisData.PROFILE_OF[k] || {}, st.profiles[k]); });
     _seq = Math.max(_seq, st.seq);
     if (st.eseq) _evSeq = Math.max(_evSeq, st.eseq);
+    if (st.addr) window.NaturisData.SHIP_ADDRESSES = st.addr;
   } catch (e) {}
 })();
 var _bumpCore = _bump;

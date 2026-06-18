@@ -315,6 +315,12 @@ function LM05_Planning({ nav }) {
   }
   return <div className="col gap-5">
     <PageHead title="Planning desk" sub="Asha & Vikram · centralised station allocation at the lab meeting — 8 stations, 3–4 products per station per day, FIFO with VVIP priority." />
+    <div className="grid grid-4 gap-3">
+      <Stat label="Awaiting a slot" value={queue.length} attention={queue.length > 0} sub="VVIP first, then FIFO" />
+      <Stat label="Booked" value={booked.length} sub="This horizon" />
+      <Stat label="VVIP waiting" value={queue.filter(r => r.vvip).length} attention={queue.filter(r => r.vvip).length > 0} sub="Priority allocation" />
+      <Stat label="Stations" value={8} sub="3–4 products / day each" />
+    </div>
     <div className="grid gap-4" style={{ gridTemplateColumns: "330px 1fr", alignItems: "start" }}>
       <div className="col gap-3">
         <div className="card" style={{ padding: 0 }}>
@@ -360,6 +366,7 @@ function LM06_StationBoard({ nav }) {
   const reqs = D.REQUIREMENTS;
   const OPS = D.STATION_OPERATORS;
   const STN = ["Emulsion / cream", "Gel / serum", "SPF / hybrid", "Cleanser / wash", "Oil / balm", "Mask / leave-on", "Colour / lip", "Hair / scalp"];
+  const SLOT_TIMES = ["09:00 – 11:00", "11:00 – 13:00", "14:00 – 16:00", "16:00 – 18:00"];
   // upcoming working days
   const days = (function () {
     var arr = [], dt = new Date(), added = 0;
@@ -381,11 +388,12 @@ function LM06_StationBoard({ nav }) {
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
         <table className="tbl" style={{ minWidth: 1500, borderCollapse: "collapse" }}>
-          <thead><tr>{STN.map((kind, s) => <th key={s} style={{ background: "var(--brand)", color: "#fff", padding: "8px 10px", textAlign: "left", borderRight: "1px solid rgba(255,255,255,.15)", minWidth: 175 }}>
+          <thead><tr><th style={{ background: "var(--brand)", color: "#fff", padding: "8px 10px", textAlign: "left", borderRight: "1px solid rgba(255,255,255,.15)", minWidth: 96, position: "sticky", left: 0, zIndex: 1 }}><div style={{ fontSize: 11.5, fontWeight: 800 }}>Time</div><div style={{ fontSize: 10, opacity: .85 }}>slot</div></th>{STN.map((kind, s) => <th key={s} style={{ background: "var(--brand)", color: "#fff", padding: "8px 10px", textAlign: "left", borderRight: "1px solid rgba(255,255,255,.15)", minWidth: 175 }}>
             <div style={{ fontSize: 11.5, fontWeight: 800 }}>Station {s + 1}</div>
             <div style={{ fontSize: 10, opacity: .85 }}>{kind} · {OPS[s]}</div></th>)}</tr></thead>
           <tbody>
             {[0, 1, 2, 3].map(slot => <tr key={slot}>
+              <td style={{ padding: "8px 10px", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: "var(--page)", position: "sticky", left: 0, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{SLOT_TIMES[slot]}</td>
               {STN.map((kind, s) => { const item = (board[s] || [])[slot];
                 return <td key={s} style={{ padding: "8px 10px", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", verticalAlign: "top", height: 58 }}>
                   {item ? <div onClick={() => nav("LB-03", { reqId: item.id })} style={{ cursor: "pointer" }}>

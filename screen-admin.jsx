@@ -273,11 +273,30 @@ function GL03_Settings() {
 function AD10_AddressBook() {
   window.useStore();
   const [q, setQ] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ client: "", contact: "", lines: "", status: "active" });
   const all = DA.SHIP_ADDRESSES || [];
   const list = all.filter(s => !q || (s.client + " " + s.contact).toLowerCase().includes(q.toLowerCase()));
+  function save() {
+    if (!f.client.trim()) return;
+    window.NaturisStore.addShipAddress({ client: f.client.trim(), contact: f.contact.trim() || "—", to: f.lines.split("\n").map(x => x.trim()).filter(Boolean), status: f.status });
+    setF({ client: "", contact: "", lines: "", status: "active" }); setAdding(false);
+  }
   return <div className="col gap-5">
     <PageHead title="Ship-to address book" sub="Dispatch directory · the Naturis lab is always the 'From'. Green = active, red = discarded."
-      actions={<div style={{ position: "relative", width: 240 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div>} />
+      actions={<div className="row gap-2"><div style={{ position: "relative", width: 220 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div><button className="btn" onClick={() => setAdding(true)}><Icon name="plus" size={15} /> Add address</button></div>} />
+    {adding && <><div onClick={() => setAdding(false)} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", zIndex: 95 }} />
+      <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(520px,94vw)", background: "var(--surface)", borderRadius: 16, boxShadow: "0 24px 64px rgba(15,23,42,.3)", zIndex: 96, padding: 24 }}>
+        <div className="row between" style={{ marginBottom: 14 }}><div className="h3">New ship-to address</div><button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}><Icon name="x" size={16} /></button></div>
+        <div className="col gap-3">
+          <Field label="Client / brand" required><input className="input" value={f.client} onChange={e => setF(x => ({ ...x, client: e.target.value }))} placeholder="e.g. Plum" /></Field>
+          <Field label="Contact person"><input className="input" value={f.contact} onChange={e => setF(x => ({ ...x, contact: e.target.value }))} placeholder="e.g. Ms. Dolly Suri" /></Field>
+          <Field label="Address (one line per row)"><textarea className="textarea" style={{ minHeight: 90 }} value={f.lines} onChange={e => setF(x => ({ ...x, lines: e.target.value }))} placeholder={"Company\nStreet, area\nCity 000000\nPH: ..."} /></Field>
+          <Field label="Status"><select className="select" value={f.status} onChange={e => setF(x => ({ ...x, status: e.target.value }))}><option value="active">Active</option><option value="discarded">Discarded</option></select></Field>
+          <div className="row gap-2"><button className="btn" disabled={!f.client.trim()} onClick={save}><Icon name="check" size={15} /> Save address</button><button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}>Cancel</button></div>
+          <div className="body-sm" style={{ fontSize: 11 }}>The "From" address (Naturis lab) is added automatically.</div>
+        </div>
+      </div></>}
     <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))" }}>
       {list.map((s, i) => <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", opacity: s.status === "discarded" ? .6 : 1 }}>
         <div className="row between" style={{ padding: "9px 14px", background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)" }}>
