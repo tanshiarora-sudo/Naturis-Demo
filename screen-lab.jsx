@@ -222,6 +222,21 @@ function EvaluationPanel({ req }) {
   function set(patch) { window.NaturisStore.setEvaluation(req.id, patch); }
   function setAvail(i, state) { set({ availability: avail.map((x, j) => j === i ? { ...x, state } : x) }); }
   function addIng() { const n = newIng.trim(); if (!n) return; set({ availability: [...avail, { name: n, state: "available", manual: true }] }); setNewIng(""); }
+  // RM / PM procurement lines — what material is needed and by when (so planning can schedule around arrival)
+  const procItems = (key, label, hint) => { const items = ev[key] || []; const upd = arr => set({ [key]: arr });
+    return <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--page)", marginBottom: 12 }}>
+      <div className="label" style={{ marginBottom: 6 }}>{label} — what's needed & by when</div>
+      <div className="col gap-2">
+        {items.map((it, i) => <div key={i} className="row gap-2 wrap" style={{ alignItems: "center" }}>
+          <input className="input" style={{ flex: "1 1 150px", height: 30, fontSize: 12 }} placeholder={hint} value={it.material || ""} onChange={e => upd(items.map((x, j) => j === i ? { ...x, material: e.target.value } : x))} />
+          <input className="input" type="date" style={{ width: 150, height: 30, fontSize: 12 }} title="Expected by" value={it.byDate || ""} onChange={e => upd(items.map((x, j) => j === i ? { ...x, byDate: e.target.value } : x))} />
+          {it.byDate && <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>by {it.byDate.slice(5)}</span>}
+          <button className="btn btn-ghost btn-sm" onClick={() => upd(items.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
+        </div>)}
+        <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => upd([...items, { material: "", byDate: "" }])}><Icon name="plus" size={12} /> Add item</button>
+      </div>
+    </div>;
+  };
   const YN = ({ val, onYes, onNo }) => <div className="row gap-1">
     {[["yes", "Required", "var(--coral)"], ["no", "Not needed", "var(--ok)"]].map(([v, l, c]) =>
       <button key={v} onClick={() => v === "yes" ? onYes() : onNo()} className="btn btn-sm" style={{ background: val === v ? c : "transparent", color: val === v ? "#fff" : "var(--muted)", border: val === v ? "none" : "1px solid var(--border)" }}>{l}</button>)}
@@ -232,6 +247,8 @@ function EvaluationPanel({ req }) {
       <div className="row between" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--page)" }}><span className="body-sm">RM procurement required?</span><YN val={ev.rm} onYes={() => set({ rm: "yes" })} onNo={() => set({ rm: "no" })} /></div>
       <div className="row between" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--page)" }}><span className="body-sm">PM procurement required?</span><YN val={ev.pm} onYes={() => set({ pm: "yes" })} onNo={() => set({ pm: "no" })} /></div>
     </div>
+    {ev.rm === "yes" && procItems("rmItems", "Raw material to procure", "e.g. Zinc PCA, Niacinamide")}
+    {ev.pm === "yes" && procItems("pmItems", "Packaging material to procure", "e.g. 30ml airless pump, jar")}
     {/* slot allotment is centralised — planning desk books at the lab meeting (12 Jun decision) */}
     <div className="row between wrap gap-2" style={{ padding: "12px 14px", borderRadius: 10, background: "var(--page)", marginBottom: 16 }}>
       <div className="row gap-2" style={{ alignItems: "center" }}><Icon name="calendar" size={15} color="var(--brand-accent)" />
@@ -558,9 +575,13 @@ function WipDetail({ req, nav, role }) {
   const stageIdx = { "Accepted — date committed": 0, "Formulation": 0, "Trial": 1, "QC": 2, "Fill": 3, "Ready for dispatch": 4, "Dispatch awaiting SPOC approval": 4, "Sent to client": 4, "Client approved": 4, "In stability": 4, "Archived": 4 }[req.status] ?? 0;
   const [flagOpen, setFlagOpen] = useState(false);
   const openFlags = req.flags.filter(f => !f.resolved);
-  const showDispatch = stageIdx >= 4 && !POST.includes(req.status);
-  const postApproval = ["Client approved", "In stability", "Archived"].includes(req.status);
   const LSTAGES = DL.LAB_LIVE_STAGES;
+  // dispatch only unlocks once the live status has genuinely reached "Ready to send" (QC done) — not by jumping ahead
+  const readyIdx = (LSTAGES || []).indexOf("Ready to send");
+  const liveIdx = req.labStage ? (LSTAGES || []).indexOf(req.labStage) : -1;
+  const reachedReady = liveIdx >= readyIdx || ["Ready for dispatch", "Dispatch awaiting SPOC approval"].includes(req.status);
+  const showDispatch = reachedReady && !POST.includes(req.status);
+  const postApproval = ["Client approved", "In stability", "Archived"].includes(req.status);
   const booking = (req.evaluation || {}).booking;
   const curLS = req.labStage || (req.status === "Accepted — date committed" ? null : null);
   return <div className="col gap-4">
@@ -609,20 +630,32 @@ function WipDetail({ req, nav, role }) {
     {!postApproval && (() => {
       const isLab = (role || "lab") === "lab";
       const curIdx = curLS ? LSTAGES.indexOf(curLS) : -1;
+      const REWORK = "Rework / retrial";
+      const reworkIdx = LSTAGES.indexOf(REWORK);
+      const qcStart = LSTAGES.indexOf("QC testing pending");
       const lastSettable = LSTAGES.indexOf("Ready to send"); // Dispatched is set on SPOC approval, not here
+      // forward target — the next stage, skipping "Rework / retrial" (rework is a QC-fail branch, not a mandatory step)
+      const fwdIdx = (() => { let n = (curIdx < 0 ? 0 : curIdx + 1); if (LSTAGES[n] === REWORK) n += 1; return n; })();
       const setStage = st => { if (st !== "Dispatched") window.NaturisStore.setLabStage(req.id, st, techOfReq(req)); };
+      // sequential rule: advance one (rework skipped), step back one, or branch to rework once QC has begun
+      const canClick = si => { if (!isLab || LSTAGES[si] === "Dispatched") return false;
+        if (curIdx < 0) return si === 0;
+        if (si === curIdx - 1) return true;                       // back one
+        if (si === fwdIdx && fwdIdx <= lastSettable) return true;  // forward one
+        if (LSTAGES[si] === REWORK && curIdx >= qcStart) return true; // QC fail → rework
+        return false; };
       return <div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
         <div className="row between wrap" style={{ alignItems: "flex-start", gap: 8 }}>
-          <SectionTitle sub={isLab ? "You own this — click any stage to set it as the live status. Sales sees the update instantly." : "The 10 live stages the lab runs — updated by the lab technician; you're viewing it live."}>Live lab status</SectionTitle>
+          <SectionTitle sub={isLab ? "You own this — move one stage at a time (the next step or back one). Sales sees the update instantly." : "The 10 live stages the lab runs — updated by the lab technician; you're viewing it live."}>Live lab status</SectionTitle>
           {isLab && <div className="row gap-2">
             <button className="btn btn-secondary btn-sm" disabled={curIdx <= 0} onClick={() => { const p = LSTAGES[curIdx - 1]; if (p) setStage(p); }} title="Move the live status back one stage">‹ Back a stage</button>
-            <button className="btn btn-sm" disabled={curIdx >= lastSettable} onClick={() => { const n = LSTAGES[(curIdx < 0 ? 0 : curIdx + 1)]; if (n) setStage(n); }} title="Advance the live status to the next stage">Advance stage ›</button>
+            <button className="btn btn-sm" disabled={curIdx >= lastSettable} onClick={() => { const n = LSTAGES[fwdIdx]; if (n && fwdIdx <= lastSettable) setStage(n); }} title="Advance the live status to the next stage">Advance stage ›</button>
           </div>}
         </div>
-        {isLab && curIdx < 0 && <div className="body-sm" style={{ fontSize: 12, color: "var(--coral-dark)", marginTop: 6 }}><Icon name="alert" size={12} color="var(--coral-dark)" /> No live status set yet — click the first stage you're on to start tracking.</div>}
+        {isLab && curIdx < 0 && <div className="body-sm" style={{ fontSize: 12, color: "var(--coral-dark)", marginTop: 6 }}><Icon name="alert" size={12} color="var(--coral-dark)" /> No live status set yet — click the first stage to start tracking.</div>}
         <div className="col" style={{ marginTop: 8 }}>
           {LSTAGES.map((st, si) => { const onSt = curLS === st; const doneSt = curIdx > si;
-            const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt; const locked = st === "Dispatched"; const clickable = isLab && !locked;
+            const meta = (req.labStageLog || {})[st]; const reached = onSt || doneSt; const locked = st === "Dispatched"; const clickable = canClick(si);
             return <div key={st} style={{ borderBottom: si < LSTAGES.length - 1 ? "1px solid var(--border)" : "none" }}>
               <div role={clickable ? "button" : undefined} onClick={clickable ? () => setStage(st) : undefined}
                 onMouseEnter={clickable ? e => { if (!onSt) e.currentTarget.style.background = "var(--brand-wash)"; } : undefined}
@@ -754,7 +787,7 @@ function LB05_Approved() {
       </div>} />
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {rows.length ? <div style={{ overflowX: "auto", maxHeight: "70vh", overflowY: "auto" }}><table className="tbl" style={{ minWidth: 1700 }}>
-        <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["S.No", "Product", "Client", "Sent to", "Code", "Pcs", "Qty", "Dispatched", "Purpose", "Docket", "Courier", "Intimation to QC", "Stability start", "Approval"].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
+        <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["S.No", "Product", "Client", "Sent to", "Code", "Pcs", "Qty", "Dispatched", "Dispatch note", "Photos", "Purpose", "Docket", "Courier", "Intimation to QC", "Stability start", "Approval"].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
         <tbody>{window.vvipSort(rows).map((r, i) => { const dp = r.dispatch || {}; const set = (k, v) => window.NaturisStore.setDispatchField(r.id, k, v, techOfReq(r));
           return <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
             <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
@@ -765,6 +798,8 @@ function LB05_Approved() {
             <td style={{ padding: "6px 10px", fontSize: 11.5 }}>{dp.pcs || 2}</td>
             <td style={{ padding: "6px 10px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.moq}</td>
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{(r.dispatchedOn || "—").replace(" 2026", "")}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={dp.noteText || ""}>{dp.noteText || (dp.note ? "Dispatch note attached" : "—")}</td>
+            <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{dp.photos ? <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)", fontWeight: 700 }}><Icon name="camera" size={10} color="var(--brand-mid)" /> {dp.photos}</span> : "—"}</td>
             <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)", maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dp.purpose || "Samples as per request for evaluation"}</td>
             <td style={{ padding: "6px 10px" }}><span className="mono" style={{ fontSize: 10.5 }}>{dp.docket || ("DTDC-88" + (4200 + (parseInt(r.id.slice(-3)) || 0)))}</span></td>
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{dp.courier || (dp.docket && dp.docket.indexOf("Z") === 0 ? "Blue Dart" : "DTDC")}</td>

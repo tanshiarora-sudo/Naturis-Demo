@@ -237,6 +237,7 @@ function SP02_Intake({ nav, role }) {
   const SectionCard = IntakeSection;
   const [clientKind, setClientKind] = useState("existing");
   const [ruleOpen, setRuleOpen] = useState(false);
+  const [addrChoice, setAddrChoice] = useState("custom"); // "custom" or a saved-address index
   const [form, setForm] = useState(freshIntakeForm);
   const [flagManager, setFlagManager] = useState(false);
   const [submittedId, setSubmittedId] = useState(null);
@@ -285,6 +286,13 @@ function SP02_Intake({ nav, role }) {
     const id = window.NaturisStore.nextId();
     const seq = id.slice(-3);
     const me = (window.NaturisData.ROLES.find(r => r.id === role) || window.NaturisData.ROLES.find(r => r.id === "spoc")).person;
+    // a custom / new-client delivery address is logged to the address book under the brand
+    const brandAddrs = (D.SHIP_ADDRESSES || []).filter(a => a.client === form.brand && a.status !== "discarded");
+    if ((addrChoice === "custom" || brandAddrs.length === 0) && form.shipping.trim()) {
+      const firstLine = form.shipping.split("\n")[0].trim();
+      const dup = (D.SHIP_ADDRESSES || []).some(a => a.client === form.brand && a.to.join(" ").includes(firstLine));
+      if (!dup) window.NaturisStore.addShipAddress({ client: form.brand, contact: form.shipName || form.clientName || "—", to: form.shipping.split("\n").map(l => l.trim()).filter(Boolean).concat(form.shipPhone ? ["PH: " + form.shipPhone] : []), status: "active" });
+    }
     const status = (gateLocked || flagManager) ? "Pending review" : "Logged";
     const s = form.sensory;
     const req = {
@@ -530,9 +538,31 @@ function SP02_Intake({ nav, role }) {
             <Field label="Reference ID · auto-generated">
               <div className="input mono" style={{ display: "flex", alignItems: "center", background: "var(--brand-wash)", fontWeight: 700, color: "var(--brand)" }}>{refId}</div></Field>
             <Field label="Label description" required full><input className="input" value={form.labelDesc} onChange={e => set("labelDesc", e.target.value)} id="f-label" placeholder="What goes on the label" /></Field>
-            <Field label="Ship to — contact name"><input className="input" value={form.shipName} onChange={e => set("shipName", e.target.value)} placeholder="Who receives the sample" /></Field>
-            <Field label="Phone number"><input className="input" value={form.shipPhone} onChange={e => set("shipPhone", e.target.value)} placeholder="+91 …" /></Field>
-            <Field label="Shipping address" required full><textarea id="f-shipping" className="textarea" placeholder="Full shipping address" value={form.shipping} onChange={e => set("shipping", e.target.value)} /></Field>
+            {(() => {
+              const brandAddrs = (D.SHIP_ADDRESSES || []).filter(a => a.client === form.brand && a.status !== "discarded");
+              const pickSaved = (a, i) => { setAddrChoice(String(i)); setForm(f => ({ ...f, shipping: a.to.join("\n"), shipName: a.contact, shipPhone: ((a.to.find(l => /PH:/i.test(l)) || "").replace(/.*PH:\s*/i, "")) })); };
+              return <>
+                <Field label="Delivery address" required full>
+                  {brandAddrs.length > 0 ? <div className="col gap-2">
+                    <div className="body-sm" style={{ fontSize: 11.5 }}><b>{form.brand}</b> has {brandAddrs.length} saved address{brandAddrs.length > 1 ? "es" : ""} — pick where this sample ships, or add a custom one.</div>
+                    <div className="row gap-2 wrap">
+                      {brandAddrs.map((a, i) => { const on = addrChoice === String(i);
+                        return <div key={i} onClick={() => pickSaved(a, i)} style={{ flex: "1 1 230px", minWidth: 230, border: on ? "2px solid var(--brand)" : "1px solid var(--border)", background: on ? "var(--brand-wash)" : "var(--surface)", borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
+                          <div className="row gap-2" style={{ alignItems: "center" }}><Icon name={on ? "check" : "dispatch"} size={13} color={on ? "var(--brand)" : "var(--muted)"} /><span style={{ fontWeight: 700, fontSize: 12.5 }}>{a.contact}</span></div>
+                          <div className="body-sm" style={{ fontSize: 11, marginTop: 2 }}>{a.to.join(", ")}</div>
+                        </div>; })}
+                      <div onClick={() => { setAddrChoice("custom"); setForm(f => ({ ...f, shipping: "", shipName: "", shipPhone: "" })); }} style={{ flex: "1 1 230px", minWidth: 230, border: addrChoice === "custom" ? "2px dashed var(--brand)" : "1px dashed var(--border-strong)", background: addrChoice === "custom" ? "var(--brand-wash)" : "var(--surface)", borderRadius: 10, padding: "10px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                        <Icon name="plus" size={14} color="var(--brand)" /><span style={{ fontWeight: 600, fontSize: 12.5 }}>Add a custom address</span></div>
+                    </div>
+                  </div> : <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>New client — the address you enter will be saved to the address book under <b>{form.brand || "this brand"}</b>.</div>}
+                </Field>
+                {(addrChoice === "custom" || brandAddrs.length === 0) && <>
+                  <Field label="Ship to — contact name"><input className="input" value={form.shipName} onChange={e => set("shipName", e.target.value)} placeholder="Who receives the sample" /></Field>
+                  <Field label="Phone number"><input className="input" value={form.shipPhone} onChange={e => set("shipPhone", e.target.value)} placeholder="+91 …" /></Field>
+                  <Field label="Shipping address" required full><textarea id="f-shipping" className="textarea" placeholder="Full shipping address (one line per row)" value={form.shipping} onChange={e => set("shipping", e.target.value)} /></Field>
+                </>}
+              </>;
+            })()}
           </div>
         </SectionCard>
 

@@ -8,6 +8,7 @@ const NAV = {
     { id: "SP-01", label: "Dashboard", icon: "dashboard" },
     { id: "SP-03", label: "Requirements", icon: "list" },
     { id: "SP-09", label: "My Reports", icon: "report" },
+    { id: "AD-10", label: "Address book", icon: "accounts" },
     { id: "GL-02", label: "My Profile", icon: "user" },
   ],
   manager: [
@@ -16,6 +17,7 @@ const NAV = {
     { id: "SM-LIVE", label: "Live requirements", icon: "list" },
     { id: "CI-01", label: "Client intelligence", icon: "intel" },
     { id: "SM-PIPE", label: "Team pipeline", icon: "team" },
+    { id: "AD-10", label: "Address book", icon: "accounts" },
     { id: "GL-02", label: "Profile", icon: "user" },
   ],
   lab: [
@@ -51,6 +53,7 @@ const NAV = {
     { id: "MG-04", label: "Master tracker", icon: "list" },
     { id: "MG-03", label: "Intelligence reports", icon: "report" },
     { id: "CI-01", label: "Client intelligence", icon: "intel" },
+    { id: "LB-06", label: "Stability", icon: "clock" },
   ],
   admin: [
     { id: "GL-01", label: "Notifications", icon: "bell", badge: true },
