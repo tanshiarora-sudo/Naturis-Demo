@@ -1082,25 +1082,38 @@ function _persist() {
       audit: AUDIT.slice(), fit: FIT_SCORES, ci: window.NaturisData.CI_DATA }));
   } catch (e) {}
 }
+function _hydrate(raw) {
+  var st = JSON.parse(raw);
+  if (!st || !st.reqs || !st.reqs.length) return false;
+  REQUIREMENTS.length = 0; st.reqs.forEach(function (r) { REQUIREMENTS.push(r); });
+  Object.keys(REQUIREMENT_TIMELINES).forEach(function (k) { delete REQUIREMENT_TIMELINES[k]; });
+  Object.keys(st.tl || {}).forEach(function (k) { REQUIREMENT_TIMELINES[k] = st.tl[k]; });
+  if (st.notifs) { NOTIFICATIONS.length = 0; st.notifs.forEach(function (n) { NOTIFICATIONS.push(n); }); }
+  if (st.audit) { AUDIT.length = 0; st.audit.forEach(function (a) { AUDIT.push(Object.freeze(a)); }); }
+  if (st.fit) Object.keys(st.fit).forEach(function (k) { FIT_SCORES[k] = st.fit[k]; });
+  if (st.ci) Object.keys(st.ci).forEach(function (k) { window.NaturisData.CI_DATA[k] = st.ci[k]; });
+  if (st.seq) if (st.profiles) Object.keys(st.profiles).forEach(function (k) { Object.assign(window.NaturisData.PROFILE_OF[k] = window.NaturisData.PROFILE_OF[k] || {}, st.profiles[k]); });
+  _seq = Math.max(_seq, st.seq);
+  if (st.eseq) _evSeq = Math.max(_evSeq, st.eseq);
+  if (st.addr) window.NaturisData.SHIP_ADDRESSES = st.addr;
+  return true;
+}
 (function restoreState() {
   try {
     var raw = localStorage.getItem(NATURIS_STATE_KEY);
-    if (!raw) return;
-    var st = JSON.parse(raw);
-    if (!st || !st.reqs || !st.reqs.length) return;
-    REQUIREMENTS.length = 0; st.reqs.forEach(function (r) { REQUIREMENTS.push(r); });
-    Object.keys(REQUIREMENT_TIMELINES).forEach(function (k) { delete REQUIREMENT_TIMELINES[k]; });
-    Object.keys(st.tl || {}).forEach(function (k) { REQUIREMENT_TIMELINES[k] = st.tl[k]; });
-    if (st.notifs) { NOTIFICATIONS.length = 0; st.notifs.forEach(function (n) { NOTIFICATIONS.push(n); }); }
-    if (st.audit) { AUDIT.length = 0; st.audit.forEach(function (a) { AUDIT.push(Object.freeze(a)); }); }
-    if (st.fit) Object.keys(st.fit).forEach(function (k) { FIT_SCORES[k] = st.fit[k]; });
-    if (st.ci) Object.keys(st.ci).forEach(function (k) { window.NaturisData.CI_DATA[k] = st.ci[k]; });
-    if (st.seq) if (st.profiles) Object.keys(st.profiles).forEach(function (k) { Object.assign(window.NaturisData.PROFILE_OF[k] = window.NaturisData.PROFILE_OF[k] || {}, st.profiles[k]); });
-    _seq = Math.max(_seq, st.seq);
-    if (st.eseq) _evSeq = Math.max(_evSeq, st.eseq);
-    if (st.addr) window.NaturisData.SHIP_ADDRESSES = st.addr;
+    if (raw) _hydrate(raw);
   } catch (e) {}
 })();
 var _bumpCore = _bump;
 _bump = function () { _bumpCore(); _persist(); };
+/* cross-tab live sync: when another tab writes/clears the shared key, re-hydrate and re-render
+   this tab so multiple role views (SPOC / Lab / Mgmt) stay consistent during a live demo.
+   We re-render via _bumpCore (no _persist) so we never echo the write back and clobber the source. */
+try {
+  window.addEventListener("storage", function (e) {
+    if (e.key !== NATURIS_STATE_KEY) return;
+    if (e.newValue == null) { location.reload(); return; } // another tab reset the demo
+    try { if (_hydrate(e.newValue)) _bumpCore(); } catch (err) {}
+  });
+} catch (e) {}
 window.NaturisStore.resetDemo = function () { try { localStorage.removeItem(NATURIS_STATE_KEY); } catch (e) {} location.reload(); };
