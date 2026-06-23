@@ -1065,7 +1065,7 @@ window.checkRulebook = function (ingredients, base) {
 };
 
 /* ---------- persistence — created/updated records survive reloads (real-platform feel) ---------- */
-var NATURIS_STATE_KEY = "naturis.state.v9";
+var NATURIS_STATE_KEY = "naturis.state.v10";
 function _persist() {
   try {
     localStorage.setItem(NATURIS_STATE_KEY, JSON.stringify({
