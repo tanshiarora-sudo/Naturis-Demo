@@ -312,7 +312,7 @@ function SP02_Intake({ nav, role }) {
       actives, nonNegotiable: form.nonNeg.filter(a => a.ingredient), goodToHave: form.good.filter(a => a.ingredient),
       concerns: form.concerns, claims: form.claims,
       sensory: { fragrance: [s.fragLevel, s.fragSpec].filter(Boolean).join(" · ") || "—", colour: [s.colour, s.colourSpec].filter(Boolean).join(" · ") || "—", texture: [s.texture, s.textureSpec].filter(Boolean).join(" · ") || "—" },
-      briefDetail: { region: "India", notes: form.recommend, fillVol: form.fillVol, labelDesc: form.labelDesc, shipping: form.shipping, shipName: form.shipName, shipPhone: form.shipPhone, refId: id, packaging: form.packaging, references: form.references, company: form.company, clientName: form.clientName, rmBudget: form.rmBudget, pmBudget: form.pmBudget, fg },
+      briefDetail: { region: "India", notes: form.recommend, fillVol: form.fillVol, labelDesc: form.labelDesc, shipping: form.shipping, shipName: form.shipName, shipPhone: form.shipPhone, refId: id, packaging: form.packaging, packLabel: form.packLabel, packUrl: form.packUrl, packRef: form.packRef, references: form.references, company: form.company, clientName: form.clientName, rmBudget: form.rmBudget, pmBudget: form.pmBudget, fg },
       flags: [], manualFlag: false, tracker: null, ownership: gateLocked ? "escalated" : "unassigned",
       recommend: form.recommend, clientKind,
     };
@@ -1147,7 +1147,26 @@ function SP04_Detail({ params, nav, role }) {
           </div>; })}
       </div>
     </div>}
-        {["Client approved", "In stability"].includes(req.status) && <PrePOChecklist req={req} role={role === "admin" ? "admin" : "spoc"} />}
+        {["Client approved", "In stability", "Won"].includes(req.status) && (() => {
+          const ev = req.evaluation || {}; const del = req.deliverables || {}; const st = req.stability;
+          const stabNeeded = ev.stabilityNeeded === "yes";
+          const delRow = (l, d) => <div className="row between" style={{ padding: "8px 12px", borderRadius: 8, background: "var(--page)" }}>
+            <span className="body-sm" style={{ fontSize: 12.5 }}>{l}</span>
+            {d && d.done ? <span className="pill pill-sm" style={{ background: "var(--approved-bg)", color: "var(--approved-fg)", fontWeight: 700 }}><Icon name="check" size={10} color="var(--approved-fg)" /> Submitted{d.at && d.at !== "just now" ? " · " + d.at : ""}</span>
+              : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>Pending with lab</span>}</div>;
+          return <div className="card" style={{ borderTop: "3px solid var(--brand-accent)" }}>
+            <SectionTitle sub="Read-only — the lab runs these after approval; you can see progress here">Stability & deliverables</SectionTitle>
+            <div className="col gap-2">
+              <div className="row between" style={{ padding: "8px 12px", borderRadius: 8, background: "var(--page)" }}>
+                <span className="body-sm" style={{ fontSize: 12.5 }}>Stability / shelf-life</span>
+                {!stabNeeded ? <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--muted)", fontWeight: 700 }}>Not required (lab verdict)</span>
+                  : st ? <span className="pill pill-sm" style={{ background: st.status === "passed" ? "var(--approved-bg)" : "var(--review-bg)", color: st.status === "passed" ? "var(--approved-fg)" : "var(--review-fg)", fontWeight: 700 }}>{st.status === "passed" ? "Passed ✓" : st.months + "-mo · month " + st.month + "/" + st.months}</span>
+                    : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>Required · not started</span>}</div>
+              {delRow("Ingredient sheet", del.ingredient)}
+              {delRow("Marketing brief", del.marketing)}
+            </div>
+          </div>; })()}
+        {["Client approved", "In stability", "Won"].includes(req.status) && <PrePOChecklist req={req} role={role === "admin" ? "admin" : "spoc"} />}
 
     <div className="grid gap-4" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>
       <div className="col gap-4">

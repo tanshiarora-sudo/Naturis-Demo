@@ -83,6 +83,24 @@ function LB01_Dashboard({ nav }) {
       <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 13.5 }}>Work the queue from the Query desk</div><div className="body-sm" style={{ fontSize: 12 }}>The full list — every query, all desks, filterable. Acknowledge & track from there.</div></div>
       <button className="btn btn-sm" onClick={() => nav("LB-02")}>Open query desk <Icon name="arrowRight" size={13} /></button>
     </div>
+
+    {/* placeholder tools — pending the lab's real sheets/DB; surfaced here for now */}
+    <div className="card" style={{ borderTop: "3px solid var(--brand-light)" }}>
+      <div className="row between" style={{ marginBottom: 10, alignItems: "center" }}>
+        <SectionTitle sub="Placeholder generators — wired to the lab's sheets / brief DB once shared">Lab tools · beta</SectionTitle>
+        <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>Coming soon</span>
+      </div>
+      <div className="grid grid-3 gap-3">
+        {[["Ingredient-list generator", "INCI list from the formulation", "note"],
+          ["Marketing-brief generator", "Soft, label-safe claims", "note"],
+          ["Daily sampling sheet", "Day's trials across stations", "list"]].map(([t, s, ic]) =>
+          <div key={t} style={{ padding: "12px 14px", borderRadius: 10, border: "1px dashed var(--border-strong)", background: "var(--page)" }}>
+            <div className="row gap-2" style={{ alignItems: "center", marginBottom: 4 }}><Icon name={ic} size={15} color="var(--brand-accent)" /><span style={{ fontWeight: 700, fontSize: 13 }}>{t}</span></div>
+            <div className="body-sm" style={{ fontSize: 11.5 }}>{s}</div>
+            <span className="pill pill-sm" style={{ marginTop: 8, background: "var(--brand-wash)", color: "var(--brand-mid)", fontWeight: 700 }}>AI · placeholder</span>
+          </div>)}
+      </div>
+    </div>
   </div>;
 }
 
@@ -328,6 +346,12 @@ function EvaluationPanel({ req }) {
           <div style={{ fontSize: 12, fontWeight: 600, marginTop: 1 }}>{v || "—"}</div>
         </div>)}
     </div>
+    {(bd.packLabel || bd.packUrl || bd.packRef) && <div className="row gap-2 wrap" style={{ alignItems: "center", padding: "8px 12px", borderRadius: 8, background: "var(--brand-wash)", marginBottom: 12 }}>
+      <span className="label" style={{ fontSize: 8 }}>Packaging reference</span>
+      {bd.packLabel && <span className="body-sm" style={{ fontSize: 12, fontWeight: 600 }}>{bd.packLabel}</span>}
+      {bd.packUrl && <a href={bd.packUrl} target="_blank" rel="noreferrer" className="row gap-1" style={{ fontSize: 11.5, color: "var(--brand-mid)", fontWeight: 600, alignItems: "center" }} onClick={e => e.stopPropagation()}><Icon name="arrowRight" size={11} color="var(--brand-mid)" /> {bd.packUrl.length > 40 ? bd.packUrl.slice(0, 40) + "…" : bd.packUrl}</a>}
+      {bd.packRef && <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--brand-mid)", fontWeight: 700 }}><Icon name="note" size={10} color="var(--brand-mid)" /> reference image attached</span>}
+    </div>}
     <div className="col gap-2">
       {pmList.length ? pmList.map((p, i) => <div key={i} {...rowHover(p.needed)} style={{ padding: "10px 12px", borderRadius: 10, background: p.needed ? "var(--coral-wash)" : "var(--surface)", border: "1px solid " + (p.needed ? "var(--coral)" : "var(--border)"), borderLeft: "3px solid " + (p.needed ? "var(--coral)" : "var(--border)"), transition: "transform .12s, box-shadow .12s" }}>
         <div className="row between" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
