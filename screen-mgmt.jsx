@@ -72,10 +72,10 @@ function MG01_Command({ nav }) {
     <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr", alignItems: "start" }}>
     <div className="card" style={{ borderTop: "3px solid var(--coral)" }}>
       <SectionTitle sub="Open flags across the pipeline">Red flags</SectionTitle>
-      {openFlags.length ? <div className="col gap-2">{openFlags.map(({ f, r }, k) => <div key={k} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--coral-wash)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
+      {openFlags.length ? <div className="col gap-2">{openFlags.slice(0, 6).map(({ f, r }, k) => <div key={k} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--coral-wash)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
         <div className="row gap-2" style={{ minWidth: 0 }}><Icon name="flag" size={13} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 12.5, color: "var(--coral-dark)" }}>{f.typeLabel || f.type}</span><span style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></div>
         <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--coral-dark)" }}>owner · {f.owner}</span>
-      </div>)}</div> : <div className="body-sm">No open flags. 🎉</div>}
+      </div>)}{openFlags.length > 6 && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => nav("MG-04")}>+{openFlags.length - 6} more → Master tracker</button>}</div> : <div className="body-sm">No open flags. 🎉</div>}
     </div>
 
     {/* 3 — immediate attention: SLA breaches + customer-ready awaiting PO */}
@@ -83,11 +83,12 @@ function MG01_Command({ nav }) {
     <div className="card" style={{ borderTop: "3px solid var(--review-fg)" }}>
       <SectionTitle sub="SLA breaches and customer-ready projects whose PO hasn't landed">Immediate attention</SectionTitle>
       <div className="col gap-2">
-        {poAwaited.map(r => <div key={"po" + r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "#FEF3C7", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
-          <span className="row gap-2" style={{ minWidth: 0 }}><VVIPStar /><span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span>
+        {poAwaited.slice(0, 5).map(r => <div key={"po" + r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "#FEF3C7", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
+          <span className="row gap-2" style={{ minWidth: 0, alignItems: "center" }}>{r.vvip ? <VVIPStar /> : <Icon name="clock" size={12} color="#92400E" />}<span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span>
           <span className="pill pill-sm" style={{ background: "var(--surface)", color: "#92400E", fontWeight: 700 }}>Customer-ready · PO awaited</span></div>)}
-        {breaches.map(r => <div key={r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--page)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
-          <span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span><SLAIndicator req={r} /></div>)}
+        {breaches.slice(0, 5).map(r => <div key={r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--page)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
+          <span className="row gap-2" style={{ minWidth: 0, alignItems: "center" }}>{r.vvip && <VVIPStar />}<span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span><SLAIndicator req={r} /></div>)}
+        {(poAwaited.length + breaches.length) > 10 && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => nav("MG-04")}>+{(poAwaited.length + breaches.length) - 10} more → Master tracker</button>}
         {!breaches.length && !poAwaited.length && <div className="body-sm">Nothing needs immediate attention.</div>}
       </div>
     </div>
@@ -154,10 +155,20 @@ const BRAND_HUES = {
   Nua:     ["#C68F88", "#FBF3F2"],
 };
 function MG02_Brands({ nav }) {
+  const [q, setQ] = useState("");
+  const [seg, setSeg] = useState("all");
+  const segments = ["all", ...Array.from(new Set((DG.ACCOUNTS || []).map(a => a.segment).filter(Boolean)))];
+  const list = (DG.ACCOUNTS || []).filter(a => (seg === "all" || a.segment === seg) && (!q || (a.name + " " + (a.segment || "") + " " + (a.website || "")).toLowerCase().includes(q.toLowerCase())));
   return <div className="col gap-5">
-    <PageHead title="Brands" sub="Per-brand performance & mix" />
+    <PageHead title="Brands" sub={(DG.ACCOUNTS || []).length + " brands · per-brand performance & mix"}
+      actions={<div className="row gap-2" style={{ alignItems: "center" }}>
+        <div style={{ position: "relative", width: 220 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span>
+          <input className="input" style={{ paddingLeft: 36 }} placeholder="Search brand…" value={q} onChange={e => setQ(e.target.value)} /></div>
+        <select className="select" style={{ width: 160, height: 38 }} value={seg} onChange={e => setSeg(e.target.value)}><option value="all">All segments</option>{segments.filter(s => s !== "all").map(s => <option key={s}>{s}</option>)}</select>
+      </div>} />
+    <div className="body-sm" style={{ fontSize: 12 }}>{list.length} brand{list.length !== 1 ? "s" : ""}</div>
     <div className="grid grid-2 gap-4">
-      {DG.ACCOUNTS.map(a => {
+      {list.map(a => {
         const mix = ["EPD", "REN", "TT", "NPD"].map((t, i) => ({ t, n: ((a.id.charCodeAt(5) + i * 3) % 5) + 1 }));
         const [hue, wash] = BRAND_HUES[a.name] || ["var(--brand)", "var(--brand-wash)"];
         return <div key={a.id} className="card" style={{ padding: 0, overflow: "hidden", borderTop: `3px solid ${hue}` }}>
@@ -176,6 +187,7 @@ function MG02_Brands({ nav }) {
           </div>
         </div>;
       })}
+      {!list.length && <div className="card" style={{ textAlign: "center", padding: 32, gridColumn: "1 / -1" }}><div className="body-sm">No brands match your search.</div></div>}
     </div>
   </div>;
 }

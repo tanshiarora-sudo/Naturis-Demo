@@ -213,19 +213,15 @@ function LM03_Planning({ nav }) {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const ageing = window.vvipSort(b.active.filter(r => r.age >= 20)).slice(0, 8);
   return <div className="col gap-5">
-    <PageHead title="Planning & load" sub="Slot calendar · workload distribution · ageing" />
+    <PageHead title="Planning & load" sub="Station load · workload distribution · ageing · daily sampling. (Slot booking lives on the Planning desk.)" />
     <div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10, width: "fit-content" }}>
-      {[["load", "Station load"], ["calendar", "Slot calendar"], ["workload", "Workload by tech"], ["ageing", "Ageing"], ["sampling", "Daily sampling sheet"]].map(([v, l]) =>
+      {[["load", "Station load"], ["workload", "Workload by tech"], ["ageing", "Ageing"], ["sampling", "Daily sampling sheet"]].map(([v, l]) =>
         <button key={v} onClick={() => setTab(v)} className="btn btn-sm" style={{ background: tab === v ? "var(--surface)" : "transparent", color: tab === v ? "var(--brand)" : "var(--muted)", boxShadow: tab === v ? "var(--sh-sm)" : "none", border: "none" }}>{l}</button>)}
     </div>
     {tab === "load" && <div className="card"><SectionTitle>Station load</SectionTitle>
       <div className="col gap-3">{stations.map(([s, load]) => <div key={s}>
         <div className="row between" style={{ marginBottom: 4 }}><span style={{ fontSize: 13, fontWeight: 500 }}>{s}</span><span className="mono" style={{ fontSize: 12, color: load > 80 ? "var(--coral)" : "var(--muted)" }}>{load}%</span></div>
         <div className="bar-track" style={{ height: 12 }}><div className="bar-fill" style={{ width: load + "%", background: load > 80 ? "var(--coral)" : load > 60 ? "var(--warn)" : "var(--ok)" }} /></div></div>)}</div></div>}
-    {tab === "calendar" && <div className="card">
-      <LabStationCalendar value={lmSlot} onChange={setLmSlot} readOnly title="Station board — view only (booked by the Lab Planner)"
-        sub="Two-week board across the 8 stations. Booking is done by the Lab Planner; this is your read-only view." />
-    </div>}
     {tab === "workload" && <div className="card"><SectionTitle>Workload distribution by technician</SectionTitle>
       <div className="col gap-3">{techs.map(t => { const n = b.active.filter(r => techOf(r) === t).length; const pct = Math.min(100, n * 18);
         return <div key={t}><div className="row between" style={{ marginBottom: 4 }}><span className="row gap-2"><Avatar name={t} size={22} /><span style={{ fontSize: 13, fontWeight: 500 }}>{t}</span></span><span className="mono" style={{ fontSize: 12 }}>{n} active</span></div>
@@ -502,48 +498,65 @@ function LM06_StationBoard({ nav }) {
   const reqs = D.REQUIREMENTS;
   const OPS = D.STATION_OPERATORS;
   const STN = ["Emulsion / cream", "Gel / serum", "SPF / hybrid", "Cleanser / wash", "Oil / balm", "Mask / leave-on", "Colour / lip", "Hair / scalp"];
-  const SLOT_TIMES = ["09:00 – 11:00", "11:00 – 13:00", "14:00 – 16:00", "16:00 – 18:00"];
-  // upcoming working days
-  const days = (function () {
-    var arr = [], dt = new Date(), added = 0;
-    while (added < 4) { var dow = dt.getDay(); if (dow !== 0 && dow !== 6) { arr.push(new Date(dt)); added++; } dt.setDate(dt.getDate() + 1); }
-    return arr;
-  })();
+  const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17]; // each row = one hour, 09:00 → 18:00
+  const hLabel = h => String(h).padStart(2, "0") + ":00";
+  const days = (function () { var arr = [], dt = new Date(), n = 0; while (n < 10) { var d = dt.getDay(); if (d !== 0 && d !== 6) { arr.push(new Date(dt)); n++; } dt.setDate(dt.getDate() + 1); } return arr; })();
   const [dayIdx, setDayIdx] = useState(0);
-  const fmt = d => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  const bench = window.vvipSort(reqs.filter(r => ["Accepted — date committed", "Formulation", "Trial", "QC", "Fill"].includes(r.status)));
-  // deterministic fill: rotate by day so each day shows a different arrangement
-  const board = {};
-  bench.forEach(function (r, k) { var st = (k + dayIdx) % 8; (board[st] = board[st] || []); if (board[st].length < 4) board[st].push(r); });
-  return <div className="col gap-5">
-    <PageHead title="Station board" sub="Daily allocation across the 8 stations — 3–4 products per station. Booked by the Lab Planner at the lab meeting."
-      actions={<div className="row gap-1" style={{ background: "var(--brand-wash)", padding: 4, borderRadius: 10 }}>
-        {days.map((d, di) => <button key={di} onClick={() => setDayIdx(di)} className="btn btn-sm" style={{ background: dayIdx === di ? "#fff" : "transparent", color: dayIdx === di ? "var(--brand)" : "var(--muted)", boxShadow: dayIdx === di ? "var(--sh-sm)" : "none", border: "none" }}>{di === 0 ? "Today" : fmt(d).split(",")[0]}</button>)}
-      </div>} />
-    <div style={{ padding: "10px 16px", borderRadius: 10, background: "var(--grad-coral)", color: "#fff", fontWeight: 700 }}>{fmt(days[dayIdx])}{dayIdx === 0 ? " · TODAY" : ""}</div>
+  const day = days[dayIdx];
+  const dayKey = day.toISOString().slice(0, 10);
+  const fmtFull = d => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
+  const hasBooking = r => r.evaluation && r.evaluation.booking;
+  const dayBookings = reqs.filter(r => hasBooking(r) && r.evaluation.booking.dateKey === dayKey).map(r => ({ r, b: r.evaluation.booking }));
+  const stationData = STN.map((name, si) => { const items = dayBookings.filter(x => x.b.station === si); const startMap = {}, covered = {};
+    items.forEach(({ r, b }) => { startMap[b.startHour] = { r, b }; for (var h = b.startHour; h < b.endHour; h++) covered[h] = true; });
+    return { name, si, startMap, covered, freeAt: h => !covered[h] }; });
+  const ROWH = 44;
+  return <div className="col gap-4">
+    <PageHead title="Station board" sub="Live bookings across the 8 stations at their actual times — set on the planning desk (custom durations). Read-only." />
+    {/* day strip */}
+    <div className="row gap-2" style={{ alignItems: "center", overflowX: "auto", paddingBottom: 4 }}>
+      {days.map((d, di) => { const on = di === dayIdx; const cnt = reqs.filter(r => hasBooking(r) && r.evaluation.booking.dateKey === d.toISOString().slice(0, 10)).length;
+        return <button key={di} onClick={() => setDayIdx(di)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 12, padding: "8px 12px", minWidth: 78, flexShrink: 0, textAlign: "center", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, opacity: on ? .85 : .6 }}>{di === 0 ? "TODAY" : d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()}</div>
+          <div className="serif-num" style={{ fontSize: 18, lineHeight: 1.1 }}>{d.getDate()}</div>
+          <div style={{ fontSize: 9, fontWeight: 600, opacity: on ? .85 : .55 }}>{d.toLocaleDateString("en-GB", { month: "short" })}{cnt ? " · " + cnt : ""}</div>
+        </button>; })}
+    </div>
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="row between" style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>{fmtFull(day)}{dayIdx === 0 ? " · today" : ""}</span>
+        <span className="body-sm" style={{ fontSize: 11.5 }}>{dayBookings.length} booked · {dayBookings.reduce((s, x) => s + (x.b.endHour - x.b.startHour), 0)}h allocated</span>
+      </div>
       <div style={{ overflowX: "auto" }}>
-        <table className="tbl" style={{ minWidth: 1500, borderCollapse: "collapse" }}>
-          <thead><tr><th style={{ background: "var(--brand)", color: "#fff", padding: "8px 10px", textAlign: "left", borderRight: "1px solid rgba(255,255,255,.15)", minWidth: 96, position: "sticky", left: 0, zIndex: 1 }}><div style={{ fontSize: 11.5, fontWeight: 800 }}>Time</div><div style={{ fontSize: 10, opacity: .85 }}>slot</div></th>{STN.map((kind, s) => <th key={s} style={{ background: "var(--brand)", color: "#fff", padding: "8px 10px", textAlign: "left", borderRight: "1px solid rgba(255,255,255,.15)", minWidth: 175 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800 }}>Station {s + 1}</div>
-            <div style={{ fontSize: 10, opacity: .85 }}>{kind} · {OPS[s]}</div></th>)}</tr></thead>
+        <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1080 }}>
+          <thead><tr>
+            <th style={{ position: "sticky", left: 0, zIndex: 2, background: "var(--brand)", color: "#fff", width: 62, minWidth: 62, padding: "8px 6px", fontSize: 10, fontWeight: 700 }}>Time</th>
+            {STN.map((name, si) => <th key={si} style={{ background: "var(--brand)", color: "#fff", padding: "7px 8px", textAlign: "left", borderLeft: "1px solid rgba(255,255,255,.14)", minWidth: 124 }}>
+              <div style={{ fontSize: 11, fontWeight: 800 }}>Station {si + 1}</div>
+              <div style={{ fontSize: 9.5, opacity: .85, lineHeight: 1.25 }}>{name}<br />{OPS[si]}</div></th>)}
+          </tr></thead>
           <tbody>
-            {[0, 1, 2, 3].map(slot => <tr key={slot}>
-              <td style={{ padding: "8px 10px", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: "var(--page)", position: "sticky", left: 0, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{SLOT_TIMES[slot]}</td>
-              {STN.map((kind, s) => { const item = (board[s] || [])[slot];
-                return <td key={s} style={{ padding: "8px 10px", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", verticalAlign: "top", height: 58 }}>
-                  {item ? <div onClick={() => nav("LB-03", { reqId: item.id })} style={{ cursor: "pointer" }}>
-                    <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{item.vvip && <VVIPBadge size="sm" />}<span style={{ fontSize: 11.5, fontWeight: 600, lineHeight: 1.2 }}>{item.title}</span></div>
-                    <div className="mono" style={{ fontSize: 10, color: "var(--brand-mid)", marginTop: 2 }}>{item.currentNcl || item.id}</div>
-                    <div className="body-sm" style={{ fontSize: 9.5, color: "var(--muted)" }}>{item.brand} · {item.tracker || "—"}</div>
-                  </div> : <span style={{ fontSize: 10, color: "var(--border-strong)" }}>{slot + 1}</span>}
-                </td>; })}
+            {HOURS.map(h => <tr key={h}>
+              <td style={{ position: "sticky", left: 0, zIndex: 1, background: "var(--page)", borderRight: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: "0 6px", fontSize: 10.5, fontWeight: 700, color: "var(--muted)", verticalAlign: "top", height: ROWH }}>{hLabel(h)}</td>
+              {stationData.map((sd, si) => { const ev = sd.startMap[h];
+                if (ev) { const dur = ev.b.endHour - ev.b.startHour; const r = ev.r;
+                  return <td key={si} rowSpan={dur} style={{ borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: 4, verticalAlign: "top" }}>
+                    <div onClick={() => nav("LB-03", { reqId: r.id })} style={{ height: dur * ROWH - 8, borderRadius: 9, padding: "6px 8px", background: r.vvip ? "linear-gradient(135deg,#F59E0B,#D97706)" : "var(--grad-brand)", color: "#fff", cursor: "pointer", overflow: "hidden" }}>
+                      <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{r.vvip && <Icon name="star" size={10} color="#fff" />}<span style={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1.15 }}>{r.title}</span></div>
+                      <div style={{ fontSize: 10, opacity: .9, marginTop: 1 }}>{r.brand} · {r.tracker || "—"}</div>
+                      <div className="mono" style={{ fontSize: 9.5, opacity: .85 }}>{hLabel(ev.b.startHour)}–{hLabel(ev.b.endHour)} · {dur}h{ev.b.batchSize ? " · " + ev.b.batchSize : ""}</div>
+                    </div>
+                  </td>;
+                }
+                if (!sd.freeAt(h)) return null;
+                return <td key={si} style={{ borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", height: ROWH }} />;
+              })}
             </tr>)}
           </tbody>
         </table>
       </div>
+      {!dayBookings.length && <div className="body-sm" style={{ padding: 16, textAlign: "center", color: "var(--muted)" }}>No stations booked for this day yet — book slots on the Planning desk.</div>}
     </div>
-    <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>{bench.length} active bench projects · VVIP-first. Click any cell to open the project.</div>
   </div>;
 }
 
