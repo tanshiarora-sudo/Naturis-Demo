@@ -4,29 +4,24 @@
    ============================================================ */
 
 /* ---------- VVIP BADGE (gold; force-sorts top everywhere) ---------- */
-function VVIPBadge({ size = "md", subtle }) {
-  const dims = { sm: [20, 10], md: [22, 11], lg: [28, 12] }[size] || [22, 11];
-  const base = {
-    display: "inline-flex", alignItems: "center", gap: 4, height: dims[0],
-    padding: `0 ${dims[0] / 2.4}px`, borderRadius: 999, fontSize: dims[1],
-    fontWeight: 700, letterSpacing: ".04em", whiteSpace: "nowrap",
-  };
-  const style = subtle
-    ? { ...base, background: "#FEF3C7", color: "#92400E" }
-    : { ...base, background: "linear-gradient(135deg,#F59E0B,#D97706)", color: "#fff",
-        boxShadow: "0 2px 6px rgba(217,119,6,.35)" };
-  return <span style={style}>
-    <Icon name="star" size={dims[1]} color={subtle ? "#92400E" : "#fff"} /> VVIP
-  </span>;
-}
-
-/* ---------- VVIP STAR ---------- canonical compact marker for VVIP accounts (used everywhere a row/name needs it) */
+/* ---------- VVIP — ONE design across the whole platform ----------
+   VVIPStar = the canonical gold star (the single VVIP visual language).
+   VVIPBadge = the same star + "VVIP" label, for prominent/header contexts.
+   Every VVIP indicator on the platform renders from one of these two — never anything else. */
 function VVIPStar({ size = 13, title = "VVIP account" }) {
   return <span title={title} style={{ display: "inline-flex", flexShrink: 0, lineHeight: 0 }}>
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 9"
         fill="#F59E0B" stroke="#D97706" strokeWidth="1.2" strokeLinejoin="round" />
     </svg>
+  </span>;
+}
+function VVIPBadge({ size = "md" }) {
+  const px = size === "lg" ? 14 : size === "sm" ? 11 : 12;
+  return <span title="VVIP account" style={{ display: "inline-flex", alignItems: "center", gap: 4,
+    padding: size === "lg" ? "3px 10px" : "2px 8px", borderRadius: 999, background: "#FEF3C7",
+    color: "#92400E", fontWeight: 700, fontSize: px, letterSpacing: ".03em", whiteSpace: "nowrap" }}>
+    <VVIPStar size={px + 1} /> VVIP
   </span>;
 }
 

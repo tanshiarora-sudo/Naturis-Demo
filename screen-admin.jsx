@@ -311,7 +311,7 @@ function AD10_AddressBook() {
       {accounts.map(client => { const addrs = groups[client]; const activeN = addrs.filter(a => a.status !== "discarded").length;
         return <div key={client} className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div className="row between" style={{ padding: "11px 16px", background: "var(--grad-brand)", color: "#fff" }}>
-            <span className="row gap-2" style={{ alignItems: "center" }}><span style={{ fontWeight: 800, fontSize: 14 }}>{client}</span>
+            <span className="row gap-2" style={{ alignItems: "center" }}>{((DA.ACCOUNTS || []).find(a => a.name === client) || {}).vvip && <VVIPStar size={14} />}<span style={{ fontWeight: 800, fontSize: 14 }}>{client}</span>
               <span className="pill pill-sm" style={{ background: "rgba(255,255,255,.2)", color: "#fff", fontWeight: 700 }}>{addrs.length} address{addrs.length > 1 ? "es" : ""}</span></span>
             <button className="btn btn-sm" style={{ background: "rgba(255,255,255,.18)", color: "#fff", border: "none" }} title={"Add another address for " + client} onClick={() => addFor(client)}><Icon name="plus" size={13} color="#fff" /> Add</button>
           </div>
