@@ -59,12 +59,12 @@ function MG01_Command({ nav }) {
       </div>
       {/* management override — quiet footer, not competing with the cards */}
       <div className="row gap-2" style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--border)", alignItems: "center", flexWrap: "wrap" }}>
-        <span className="body-sm" style={{ fontSize: 11.5 }}>Management override — promote a project the system didn't flag:</span>
+        <span className="body-sm" style={{ fontSize: 11.5 }}>Management override — promote a brand to VVIP (applies to the whole account & all its requirements):</span>
         <select className="select" style={{ width: 240, height: 32, fontSize: 12 }} value={vvipPick} onChange={e => setVvipPick(e.target.value)}>
-          <option value="">Choose a project…</option>
-          {reqs.filter(r => !r.vvip && r.status !== "Archived").map(r => <option key={r.id} value={r.id}>{r.brand} · {r.title}</option>)}
+          <option value="">Choose a brand…</option>
+          {(DG.ACCOUNTS || []).filter(a => !a.vvip).map(a => { const r = reqs.find(x => (x.account || x.brand) === a.name || x.brand === a.name); return r ? <option key={a.id} value={r.id}>{a.name}</option> : null; })}
         </select>
-        <button className="btn btn-sm btn-secondary" disabled={!vvipPick} onClick={() => { window.NaturisStore.setVvipOverride(vvipPick, true, "Rahul Tandon"); setVvipPick(""); }}><Icon name="star" size={13} /> Mark VVIP</button>
+        <button className="btn btn-sm btn-secondary" disabled={!vvipPick} onClick={() => { window.NaturisStore.setVvipOverride(vvipPick, true, "Rahul Tandon"); setVvipPick(""); }}><VVIPStar size={13} /> Mark VVIP</button>
       </div>
     </div>
 
@@ -208,6 +208,8 @@ const TRK_COLS = [
   ["targetRmc", "Target RMC", "Target cost of the formulation (raw material only)"],
   ["lastCode", "Last Sampled Code", "Formulation code last sampled to the customer"],
   ["stage", "Stage", "Current status of the project"],
+  ["materials", "Materials", "Live RM/PM procurement readiness from the lab — all received, expected date, or awaited"],
+  ["slot", "Station Slot", "Lab station & day booked by the planning desk"],
   ["remarks", "Remarks", "All discussions with the client, updated date-wise"],
   ["lastDate", "Last Sampled Date", "Date the last sample went out"],
   ["docket", "Docket No.", "Courier tracking number"],
@@ -232,6 +234,10 @@ function trackerRows() {
   const SENTISH = ["Sent to client", "Rejected", ...POST_PO];
   return window.vvipSort(DG.REQUIREMENTS).map((r, i) => {
     const bd = r.briefDetail || {};
+    const ev = r.evaluation || {};
+    const matNeeded = [...(ev.rmList || []), ...(ev.pmList || [])].filter(x => x.needed);
+    const materials = !matNeeded.length ? "—" : matNeeded.every(x => x.received) ? "All received" : (() => { const e = matNeeded.map(x => x.eta).filter(Boolean).sort(); return e.length ? "By " + e[e.length - 1].slice(8) + "/" + e[e.length - 1].slice(5, 7) : "Awaited"; })();
+    const slot = ev.booking ? ((ev.booking.stationName || ("Station " + (ev.booking.station + 1))) + " · " + (ev.booking.dayLabel || "")) : "—";
     const tl = (DG.REQUIREMENT_TIMELINES[r.id] || []);
     const last = tl[tl.length - 1] || {};
     const approved = POST_PO.includes(r.status);
@@ -244,7 +250,7 @@ function trackerRows() {
       packType: bd.packSize || r.packaging || "—",
       tt: r.projectType === "TT" ? "Tech Transfer" : "Nat Custom",
       targetFg: bd.fg ? "₹" + bd.fg : "—", targetRmc: bd.rmBudget ? "₹" + bd.rmBudget : "—",
-      lastCode, stage: r.status,
+      lastCode, stage: r.status, materials, slot,
       remarks: (last.detail || "—").slice(0, 60) + ((last.detail || "").length > 60 ? "…" : ""),
       lastDate: sent ? r.committedDate || "2 Jun" : r.committedDate || "—",
       docket: sent ? "DTDC-88" + (4210 + i * 7) : "—",
@@ -273,9 +279,9 @@ function MG04_Tracker({ nav }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState(1);
-  const COMPACT_COLS = ["brand", "project", "size", "packType", "tt", "targetFg", "targetRmc", "lastCode", "stage", "feedback", "stClient", "locked", "po", "launchQty"];
-  const [visCols, setVisCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem("naturis.tracker.cols")); return Array.isArray(v) && v.length ? v : TRK_COLS.map(c => c[0]); } catch (e) { return TRK_COLS.map(c => c[0]); } });
-  function saveCols(v) { setVisCols(v); try { localStorage.setItem("naturis.tracker.cols", JSON.stringify(v)); } catch (e) {} }
+  const COMPACT_COLS = ["brand", "project", "tt", "lastCode", "stage", "materials", "slot", "feedback", "stClient", "locked", "po", "launchQty"];
+  const [visCols, setVisCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem("naturis.tracker.cols.v2")); return Array.isArray(v) && v.length ? v : TRK_COLS.map(c => c[0]); } catch (e) { return TRK_COLS.map(c => c[0]); } });
+  function saveCols(v) { setVisCols(v); try { localStorage.setItem("naturis.tracker.cols.v2", JSON.stringify(v)); } catch (e) {} }
   const SHOWN = TRK_COLS.filter(c => visCols.includes(c[0]));
   function exportCsv(rows2) {
     const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';

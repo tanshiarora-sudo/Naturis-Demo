@@ -1059,10 +1059,11 @@ function SpocActionCard({ req }) {
     return <div className="card" style={{ borderLeft: "4px solid var(--brand)", marginBottom: 16 }}>
       <SectionTitle sub="Client → SPOC → Lab — capture the client's response">Client feedback</SectionTitle>
       <Field label="Feedback (texture / fragrance / formula / other)"><textarea className="textarea" value={fb} onChange={e => setFb(e.target.value)} placeholder="e.g. Loves the texture; wants the fragrance softer." style={{ minHeight: 56 }} /></Field>
-      <div className="row gap-2" style={{ marginTop: 10 }}>
-        <button className="btn" onClick={() => window.NaturisStore.clientOutcome(req.id, "approved", "Hardik Shah")}><Icon name="check" size={15} /> Client approved</button>
-        <button className="btn btn-secondary" disabled={!fb.trim()} onClick={() => { window.NaturisStore.newIteration(req.id, "Client feedback: " + fb.trim(), "Sumit Choudhary"); }}><Icon name="history" size={15} /> Request iteration</button>
-        <ConfirmBtn confirmLabel="Confirm — mark rejected" onConfirm={() => window.NaturisStore.clientOutcome(req.id, "rejected", "Hardik Shah")}>Client rejected</ConfirmBtn>
+      <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 8, color: "var(--muted)" }}>The client gives feedback to you; relay it here. Feedback returns to the lab as a fresh formulation (new NCL, same requirement) for re-evaluation.</div>
+      <div className="row gap-2" style={{ marginTop: 4 }}>
+        <button className="btn" onClick={() => window.NaturisStore.clientOutcome(req.id, "approved", "Hardik Shah")}><Icon name="check" size={15} /> Client approved → PO</button>
+        <button className="btn btn-secondary" disabled={!fb.trim()} onClick={() => { window.NaturisStore.clientFeedback(req.id, fb.trim(), "Hardik Shah"); }}><Icon name="history" size={15} /> Send feedback to lab (re-evaluate)</button>
+        <ConfirmBtn confirmLabel="Confirm — close as lost" onConfirm={() => window.NaturisStore.closeLost(req.id, fb.trim() || "Client did not proceed", "Hardik Shah")}>Close as lost</ConfirmBtn>
       </div>
     </div>;
   }
