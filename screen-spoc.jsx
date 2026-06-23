@@ -739,7 +739,7 @@ function SP03_List({ nav }) {
     inlab: ["Accepted — date committed", "Formulation", "Trial", "QC", "Fill"],
     dispatch: ["Ready for dispatch", "Dispatch awaiting SPOC approval"],
     sent: ["Sent to client"],
-    approved: ["Client approved", "In stability", "Archived"],
+    approved: ["Client approved", "In stability", "Archived", "Won"],
     rejected: ["Rejected"],
   };
   const countOf = v => v === "all" ? D.REQUIREMENTS.length : v === "drafts" ? (draft ? 1 : 0) : D.REQUIREMENTS.filter(r => (TAB_STATUS[v] || []).includes(r.status)).length;
@@ -900,7 +900,7 @@ function lifecyclePhases(req) {
     "Query raised": "Lab acknowledged", "Declined": "Lab acknowledged", "Accepted — date committed": "Lab acknowledged",
     "Formulation": "In lab", "Trial": "In lab", "QC": "In lab", "Fill": "In lab", "Returned — needs revision": "In lab",
     "Ready for dispatch": "Dispatch", "Dispatch awaiting SPOC approval": "Dispatch",
-    "Sent to client": "Sent to client", "Client approved": "Sent to client", "In stability": "Sent to client", "Archived": "Sent to client",
+    "Sent to client": "Sent to client", "Client approved": "Sent to client", "In stability": "Sent to client", "Archived": "Sent to client", "Won": "Sent to client",
   };
   return { phases, current: map[req.status] || "Requirement logged" };
 }
@@ -1067,10 +1067,17 @@ function SpocActionCard({ req }) {
       </div>
     </div>;
   }
-  // 4. Client approved → trigger stability/deliverables on the lab side (info)
+  // 4. Client approved → lab runs stability (if its verdict was 'needed') + deliverables, then marks won
   if (req.status === "Client approved") {
+    const needs = (req.evaluation || {}).stabilityNeeded === "yes";
     return <div className="card" style={{ borderLeft: "4px solid var(--ok)", marginBottom: 16 }}>
-      <div className="row gap-2"><Icon name="check" size={16} color="var(--ok)" /><span className="body-sm"><b>Client approved.</b> The lab now runs stability + prepares the ingredient sheet & marketing brief.</span></div>
+      <div className="row gap-2"><Icon name="check" size={16} color="var(--ok)" /><span className="body-sm"><b>Client approved.</b> The lab {needs ? "runs stability + " : ""}prepares the ingredient sheet & marketing brief, then closes this as Won.</span></div>
+    </div>;
+  }
+  // 5. Won — positive terminal
+  if (req.status === "Won") {
+    return <div className="card" style={{ borderLeft: "4px solid #16A34A", marginBottom: 16 }}>
+      <div className="row gap-2"><Icon name="check" size={16} color="#16A34A" /><span className="body-sm"><b style={{ color: "#16A34A" }}>Won 🎉</b> — sample approved and the project is closed. PO to follow.</span></div>
     </div>;
   }
   return null;

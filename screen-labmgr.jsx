@@ -21,8 +21,8 @@ function labBuckets(reqs) {
     declined: reqs.filter(has("Declined")),
     rejected: reqs.filter(has("Rejected")),
     queries: reqs.filter(r => (r.queries || []).some(q => !q.resolved)),
-    closed: reqs.filter(has("Archived")),
-    active: reqs.filter(r => !["Archived", "Logged", "Pending review"].includes(r.status)),
+    closed: reqs.filter(has("Archived", "Won")),
+    active: reqs.filter(r => !["Archived", "Won", "Logged", "Pending review"].includes(r.status)),
   };
 }
 function techOf(r) { return (DLM.LAB_DESKS[r.projectType] || {}).tech || "—"; }

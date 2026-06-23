@@ -13,7 +13,7 @@ const LAB_LIVE = ["Formulation", "Trial", "QC", "Fill", "Ready for dispatch", "D
 const PRE_ACK = ["Approved", "R&D assessed", "R&D assessing", "Logged"];
 const EVAL_ST = ["Acknowledged", "In evaluation"];
 const DECIDED = ["Accepted — date committed", "Declined", "Query raised"];
-const POST = ["Sent to client", "Client approved", "In stability", "Archived"];
+const POST = ["Sent to client", "Client approved", "In stability", "Archived", "Won"];
 const WIP = ["Accepted — date committed", ...LAB_LIVE, ...POST];
 const TYPE_DESKS_LB = ["EPD", "REN", "TT", "NPD"];
 const STAGE_STATUS = ["Formulation", "Trial", "QC", "Fill", "Ready for dispatch"];
@@ -265,6 +265,7 @@ function EvaluationPanel({ req }) {
   });
   const rmNeeded = rmList.filter(x => x.needed).length, pmNeeded = pmList.filter(x => x.needed).length;
   const rmDone = ev.rm === "yes" || ev.rm === "no", pmDone = ev.pm === "yes" || ev.pm === "no", slotDone = !!ev.booking;
+  const stabDecided = ev.stabilityNeeded === "yes" || ev.stabilityNeeded === "no";
   const Tag = ({ children }) => <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--muted)", fontSize: 9, fontWeight: 700, border: "1px solid var(--border)" }}>{children}</span>;
   const secHead = (n, title, summary, yn) => <div className="row between" style={{ alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
     <span className="row gap-2" style={{ alignItems: "center" }}>
@@ -280,6 +281,7 @@ function EvaluationPanel({ req }) {
     <div className="row gap-2 wrap" style={{ marginBottom: 16 }}>
       {[["Raw material", rmDone, ev.rm === "yes" ? (rmNeeded + " to procure") : ev.rm === "no" ? "nothing to procure" : "review"],
         ["Packaging", pmDone, ev.pm === "yes" ? (pmNeeded + " to procure") : ev.pm === "no" ? "nothing to procure" : "review"],
+        ["Stability verdict", stabDecided, ev.stabilityNeeded === "yes" ? "required after approval" : ev.stabilityNeeded === "no" ? "not required" : "decide"],
         ["Station slot", slotDone, slotDone ? "booked" : "pending"]].map(([l, done, sub]) =>
         <div key={l} className="row gap-2" style={{ alignItems: "center", padding: "6px 12px", borderRadius: 999, background: done ? "var(--approved-bg)" : "var(--page)", border: "1px solid " + (done ? "var(--approved-fg)" : "var(--border)") }}>
           <span style={{ width: 16, height: 16, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: done ? "var(--approved-fg)" : "var(--border-strong)" }}>{done && <Icon name="check" size={10} color="#fff" />}</span>
@@ -349,7 +351,15 @@ function EvaluationPanel({ req }) {
 
     <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
 
-    {/* 3 · STATION SLOT (booked by the planning manager) */}
+    {/* 3 · STABILITY VERDICT — lab's call, decided at evaluation; drives the post-approval path */}
+    {secHead(3, "Stability", stabDecided ? (ev.stabilityNeeded === "yes" ? "required after approval" : "not required") : "verdict needed",
+      <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 11.5 }}>Needs stability after approval?</span>
+        <YN val={ev.stabilityNeeded} onYes={() => set({ stabilityNeeded: "yes" })} onNo={() => set({ stabilityNeeded: "no" })} /></span>)}
+    <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 18 }}>{ev.stabilityNeeded === "yes" ? "Once the client approves, this goes into the stability tracker (3/6-month)." : ev.stabilityNeeded === "no" ? "No shelf-life study — once approved & deliverables are in, it's marked Won." : "Decide whether this formulation needs a shelf-life study after client approval. Required to accept."}</div>
+
+    <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
+
+    {/* STATION SLOT (booked by the planning manager) */}
     <div className="row between wrap gap-2" style={{ padding: "14px 16px", borderRadius: 12, background: ev.booking ? "var(--grad-brand)" : "var(--page)", border: ev.booking ? "none" : "1px dashed var(--border-strong)", color: ev.booking ? "#fff" : "var(--ink)" }}>
       <div className="row gap-3" style={{ alignItems: "center" }}>
         <span style={{ width: 38, height: 38, borderRadius: 10, background: ev.booking ? "rgba(255,255,255,.18)" : "var(--brand-wash)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="calendar" size={18} color={ev.booking ? "#fff" : "var(--brand-accent)"} /></span>
@@ -369,6 +379,7 @@ function DecisionPanel({ req, nav }) {
   const evalMissing = [
     [!ev.rm || ev.rm === "unset", "RM decision"],
     [!ev.pm || ev.pm === "unset", "PM decision"],
+    [!ev.stabilityNeeded || ev.stabilityNeeded === "unset", "Stability verdict"],
   ].filter(([m]) => m).map(([, lbl]) => lbl);
   const todayStr = new Date().toISOString().slice(0, 10);
   const dateOk = date && date >= todayStr;
@@ -608,14 +619,18 @@ function genMarketingBrief(req) {
 function PostApproval({ req }) {
   window.useStore();
   const [gen, setGen] = useState(null); // { key, text }
-  const defaultStab = req.projectType === "NPD" ? true : req.projectType === "EPD" ? false : "prompt";
+  const ev = req.evaluation || {};
+  const stabNeeded = ev.stabilityNeeded === "yes";
   const stab = req.stability; const del = req.deliverables || {}; const stabPassed = stab && stab.status === "passed";
+  const stabOk = !stabNeeded || stabPassed;
+  const delsOk = del.ingredient && del.ingredient.done && del.marketing && del.marketing.done;
+  const isWon = req.status === "Won";
   return <div className="card">
-    <SectionTitle sub="After client approval — runs in one thread">Post-approval · stability & deliverables</SectionTitle>
+    <SectionTitle sub="After client approval — stability (only if the lab flagged it) + deliverables, then mark won">Post-approval</SectionTitle>
     <div className="col gap-3">
-      <div style={{ padding: 12, borderRadius: 10, border: "1px solid var(--border)" }}>
-        <div className="row between"><div><div style={{ fontWeight: 600, fontSize: 13.5 }}>Stability / shelf-life</div>
-          <div className="body-sm" style={{ fontSize: 12 }}>Default {defaultStab === true ? "ON (NPD)" : defaultStab === false ? "off (EPD)" : "prompt (Renovation)"} · monthly updates mirrored to SPOC</div></div>
+      {stabNeeded ? <div style={{ padding: 12, borderRadius: 10, border: "1px solid var(--border)" }}>
+        <div className="row between"><div><div style={{ fontWeight: 600, fontSize: 13.5 }}>Stability / shelf-life <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>required · lab verdict</span></div>
+          <div className="body-sm" style={{ fontSize: 12 }}>Monthly updates mirrored to sales & management.</div></div>
           {!stab && <div className="row gap-2"><button className="btn btn-secondary btn-sm" onClick={() => window.NaturisStore.startStability(req.id, 3, techOfReq(req))}>Start 3-mo</button><button className="btn btn-sm" onClick={() => window.NaturisStore.startStability(req.id, 6, techOfReq(req))}>Start 6-mo</button></div>}
         </div>
         {stab && <div style={{ marginTop: 10 }}>
@@ -624,7 +639,7 @@ function PostApproval({ req }) {
           <StageStepper stages={Array.from({ length: stab.months }, (_, i) => "M" + (i + 1))} current={"M" + Math.max(1, stab.month)} done={stab.month} />
           {!stabPassed && <button className="btn btn-secondary btn-sm" style={{ marginTop: 10 }} onClick={() => window.NaturisStore.advanceStability(req.id, techOfReq(req))}><Icon name="arrowRight" size={13} /> Log next month</button>}
         </div>}
-      </div>
+      </div> : <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--page)", border: "1px dashed var(--border)" }}><span className="row gap-2" style={{ alignItems: "center" }}><Icon name="check" size={13} color="var(--approved-fg)" /><span className="body-sm" style={{ fontSize: 12 }}>No stability required — the lab marked this <b>not needed</b> at evaluation. Submit the deliverables, then mark won.</span></span></div>}
       {[["ingredient", "Ingredient sheet", "INCI list for the client", genIngredientList], ["marketing", "Marketing brief", "Claims + usage the brand can market with", genMarketingBrief]].map(([key, l, sub, builder]) => {
         const d = del[key];
         return <div key={key} style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
@@ -644,8 +659,11 @@ function PostApproval({ req }) {
           </div>}
         </div>;
       })}
-      {stabPassed && del.ingredient && del.ingredient.done && del.marketing && del.marketing.done &&
-        <button className="btn" onClick={() => window.NaturisStore.closeRequirement(req.id, DL.LAB_MANAGER)}><Icon name="archive" size={15} /> Close & archive project</button>}
+      {isWon ? <div className="row gap-2" style={{ padding: "11px 14px", borderRadius: 10, background: "#16A34A", color: "#fff", alignItems: "center" }}><Icon name="check" size={16} color="#fff" /><span style={{ fontWeight: 700 }}>Won — sample approved & closed. 🎉</span></div>
+        : <div className="col gap-2">
+          <button className="btn" disabled={!(stabOk && delsOk)} onClick={() => window.NaturisStore.markWon(req.id, techOfReq(req))} style={(stabOk && delsOk) ? { background: "#16A34A", color: "#fff" } : {}}><Icon name="check" size={15} /> Mark as won</button>
+          {!(stabOk && delsOk) && <div className="body-sm" style={{ fontSize: 11, color: "var(--muted)" }}>To win: {[stabNeeded && !stabPassed ? "stability must pass" : null, !delsOk ? "submit ingredient sheet + marketing brief" : null].filter(Boolean).join(" · ")}.</div>}
+        </div>}
     </div>
   </div>;
 }
@@ -713,7 +731,7 @@ function WipDetail({ req, nav, role }) {
   const liveIdx = req.labStage ? (LSTAGES || []).indexOf(req.labStage) : -1;
   const reachedReady = liveIdx >= readyIdx || ["Ready for dispatch", "Dispatch awaiting SPOC approval"].includes(req.status);
   const showDispatch = reachedReady && !POST.includes(req.status);
-  const postApproval = ["Client approved", "In stability", "Archived"].includes(req.status);
+  const postApproval = ["Client approved", "In stability", "Archived", "Won"].includes(req.status);
   const booking = (req.evaluation || {}).booking;
   const curLS = req.labStage || (req.status === "Accepted — date committed" ? null : null);
   return <div className="col gap-4">

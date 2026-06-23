@@ -525,6 +525,11 @@ REQUIREMENTS.forEach(function (r) {
       });
     }
   }
+  // a closed-positive project is now "Won" (lost ones stay archived)
+  if (r.status === "Archived" && !r.lost) r.status = "Won";
+  // seed the lab's stability verdict (decided at evaluation) for anything at/after evaluation
+  var EVAL_PLUS = ["In evaluation", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch", "Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived", "Won"];
+  if (EVAL_PLUS.indexOf(r.status) >= 0) { r.evaluation = r.evaluation || {}; if (!r.evaluation.stabilityNeeded) r.evaluation.stabilityNeeded = (r.status === "In stability" || r.projectType === "NPD" || r.projectType === "TT" || r.projectType === "REN") ? "yes" : "no"; }
   (r.queries || []).forEach(function (q) { if (q.by === "Sumit Choudhary" || q.by === "Tariq Khan") q.by = t; });
   (r.flags || []).forEach(function (f) { if (f.raisedByRole === "Lab Technician") f.raisedBy = t; if (f.resolvedBy === "Sumit Choudhary") f.resolvedBy = t; });
   (r.ncls || []).forEach(function (n) { if (n.by === "Sumit Choudhary" || n.by === "Tariq Khan") n.by = t; });
@@ -543,7 +548,7 @@ const PHASE_OF = {
 function slaStatus(req) {
   const phase = PHASE_OF[req.status] || "lab";
   const budget = (SLA_MATRIX[req.projectType] || {})[phase];
-  if (budget == null || req.status === "Archived" || req.status === "Rejected") return { phase: "na", level: "na", daysOver: 0, daysLeft: null, budget };
+  if (budget == null || req.status === "Archived" || req.status === "Rejected" || req.status === "Won") return { phase: "na", level: "na", daysOver: 0, daysLeft: null, budget };
   const used = req.phaseDays != null ? req.phaseDays : 0;
   const left = budget - used;
   let level = "ok";
@@ -783,6 +788,7 @@ window.NaturisStore = {
   // ---- post-stability deliverables ----
   setDeliverable(id, key, by) { const r = this.get(id); if (r) { r.deliverables = Object.assign({}, r.deliverables, { [key]: { done: true, by, at: "just now" } }); this.log(id, { kind: "approval", icon: "note", stage: key === "ingredient" ? "Ingredient sheet" : "Marketing brief", actor: by, role: "Lab", at: "just now", detail: (key === "ingredient" ? "Ingredient sheet" : "Marketing brief") + " submitted." }); } _bump(); },
   closeRequirement(id, by) { const r = this.get(id); if (r) { r.status = "Archived"; this.log(id, { kind: "approval", icon: "archive", stage: "Closed", actor: by, role: "Lab Mgr", at: "just now", detail: "Project closed & archived.", current: true }); } _bump(); },
+  markWon(id, by) { const r = this.get(id); if (r) { r.status = "Won"; r.won = true; this.log(id, { kind: "approval", icon: "check", stage: "Won", actor: by, role: "Lab", at: "just now", detail: "Lead won — sample approved, deliverables complete" + (r.evaluation && r.evaluation.stabilityNeeded === "yes" ? " & stability cleared." : " (no stability required)."), current: true }); this._notify(id, "dispatch", "info", id + " — WON 🎉", (r.brand || "") + " · " + (r.title || "") + " closed as won.", "NR-04", ["spoc", "manager", "mgmt"]); } _bump(); },
 };
 
 /* project-type → assigned lab-tech desk (lab manager looped into all) */

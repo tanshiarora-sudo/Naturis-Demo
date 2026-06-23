@@ -73,6 +73,7 @@ const DONE_STATES = ["Approved","Accepted — date committed","Ready for dispatc
 function statusKind(status) {
   if (!status) return "progress";
   const s = status.toLowerCase();
+  if (s === "won") return "won";
   if (ATTENTION_STATES.some(x => s.includes(x.toLowerCase())) || s.includes("reject") || s.includes("return") || s.includes("overdue") || s.includes("breach")) return "attention";
   if (DONE_STATES.some(x => s.includes(x.toLowerCase())) || s.includes("approv") || s.includes("commit") || s.includes("archiv") || s.includes("sent")) return "committed";
   if (AWAITING_STATES.some(x => s.includes(x.toLowerCase())) || s.includes("await") || s.includes("pending") || s.includes("review")) return "awaiting";
@@ -83,6 +84,7 @@ const KIND_STYLE = {
   awaiting:  { bg: "var(--review-bg)",  fg: "var(--review-fg)" },
   progress:  { bg: "var(--brand-tint)", fg: "var(--brand-mid)" },
   committed: { bg: "var(--approved-bg)",fg: "var(--approved-fg)" },
+  won:       { bg: "#16A34A",           fg: "#FFFFFF" },
   lab:       { bg: "var(--lab-bg)",     fg: "var(--lab-fg)" },
 };
 function StatusPill({ status, size, kind }) {

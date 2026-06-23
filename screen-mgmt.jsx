@@ -20,15 +20,15 @@ function Funnel({ steps, onStep, active }) {
 
 const FUNNEL_BUCKETS = {
   "Logged": null, // all
-  "Approved": ["Approved", "Acknowledged", "In evaluation", "Query raised", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch", "Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"],
+  "Approved": ["Approved", "Acknowledged", "In evaluation", "Query raised", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch", "Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived", "Won"],
   "In lab": ["Acknowledged", "In evaluation", "Accepted — date committed", "Formulation", "Trial", "QC", "Fill", "Ready for dispatch"],
-  "Dispatched": ["Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"],
-  "Client-approved": ["Client approved", "In stability", "Archived"],
+  "Dispatched": ["Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived", "Won"],
+  "Client-approved": ["Client approved", "In stability", "Archived", "Won"],
 };
 function MG01_Command({ nav }) {
   window.useStore();
   const reqs = DG.REQUIREMENTS;
-  const vvips = reqs.filter(r => r.vvip && r.status !== "Archived");
+  const vvips = reqs.filter(r => r.vvip && r.status !== "Archived" && r.status !== "Won");
   const breaches = reqs.filter(r => DG.slaStatus(r).level === "red");
   const openFlags = reqs.flatMap(r => (r.flags || []).filter(f => !f.resolved).map(f => ({ f, r })));
   const poAwaited = reqs.filter(r => r.prePOComplete);
@@ -230,7 +230,7 @@ const TRK_COLS = [
   ["proj6m", "6M Projection", "Expected order quantity for the next 6 months"],
 ];
 function trackerRows() {
-  const POST_PO = ["Client approved", "In stability", "Archived"];
+  const POST_PO = ["Client approved", "In stability", "Archived", "Won"];
   const SENTISH = ["Sent to client", "Rejected", ...POST_PO];
   return window.vvipSort(DG.REQUIREMENTS).map((r, i) => {
     const bd = r.briefDetail || {};
