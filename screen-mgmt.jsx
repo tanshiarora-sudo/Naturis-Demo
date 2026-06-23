@@ -49,7 +49,7 @@ function MG01_Command({ nav }) {
       <div className="row gap-2" style={{ marginBottom: 14 }}><Icon name="star" size={16} color="#D97706" /><span className="h3">VVIP projects</span></div>
       <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
         {vvips.map(r => <div key={r.id} onClick={() => setPopupId(r.id)} style={{ padding: "10px 12px", borderRadius: 10, background: "var(--brand-wash)", cursor: "pointer" }}>
-          <div className="row gap-2" style={{ marginBottom: 3 }}><VVIPStar /><span style={{ fontWeight: 700, fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></div>
+          <div className="row gap-2" style={{ marginBottom: 3 }}><VVIPBadge size="sm" /><span style={{ fontWeight: 700, fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></div>
           <div className="row gap-2" style={{ marginBottom: 7 }}><ProjectTypePill type={r.projectType} /><StatusPill status={r.status} size="sm" /></div>
           <div className="grid grid-2" style={{ gap: "2px 8px" }}>
             {[["SPOC", r.submittedBy.split(" ")[0]], ["Started", r.submittedAt ? r.submittedAt.replace(" 2026", "") : "—"], ["Qty × price", (r.moq || "—").replace(" units", "") + ((r.briefDetail || {}).fg ? " × ₹" + r.briefDetail.fg : "")], ["Job value", jobValue(r)]].map(([l, v]) =>
@@ -84,10 +84,10 @@ function MG01_Command({ nav }) {
       <SectionTitle sub="SLA breaches and customer-ready projects whose PO hasn't landed">Immediate attention</SectionTitle>
       <div className="col gap-2">
         {poAwaited.slice(0, 5).map(r => <div key={"po" + r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "#FEF3C7", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
-          <span className="row gap-2" style={{ minWidth: 0, alignItems: "center" }}>{r.vvip ? <VVIPStar /> : <Icon name="clock" size={12} color="#92400E" />}<span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span>
+          <span className="row gap-2" style={{ minWidth: 0, alignItems: "center" }}>{r.vvip ? <VVIPBadge size="sm" /> : <Icon name="clock" size={12} color="#92400E" />}<span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span>
           <span className="pill pill-sm" style={{ background: "var(--surface)", color: "#92400E", fontWeight: 700 }}>Customer-ready · PO awaited</span></div>)}
         {breaches.slice(0, 5).map(r => <div key={r.id} className="row between clickable" style={{ padding: "9px 12px", borderRadius: 8, background: "var(--page)", cursor: "pointer" }} onClick={() => setPopupId(r.id)}>
-          <span className="row gap-2" style={{ minWidth: 0, alignItems: "center" }}>{r.vvip && <VVIPStar />}<span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span><SLAIndicator req={r} /></div>)}
+          <span className="row gap-2" style={{ minWidth: 0, alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<span style={{ fontSize: 12.5, fontWeight: 600 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</span></span><SLAIndicator req={r} /></div>)}
         {(poAwaited.length + breaches.length) > 10 && <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => nav("MG-04")}>+{(poAwaited.length + breaches.length) - 10} more → Master tracker</button>}
         {!breaches.length && !poAwaited.length && <div className="body-sm">Nothing needs immediate attention.</div>}
       </div>
@@ -127,7 +127,7 @@ function MG01_Command({ nav }) {
         <SectionTitle action={<span className="body-sm" style={{ fontSize: 10.5 }}>tap → intelligence</span>}>Top clients</SectionTitle>
         <div className="col">
           {DG.ACCOUNTS.map((a, ai) => <div key={a.id} className="row between clickable" onClick={() => nav("CI-01")} style={{ padding: "5px 4px", borderBottom: ai < DG.ACCOUNTS.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
-            <span className="row gap-2" style={{ alignItems: "center", fontSize: 12.5, fontWeight: 600 }}>{a.vvip && <VVIPStar size={12} />}{a.name}</span>
+            <span className="row gap-2" style={{ alignItems: "center", fontSize: 12.5, fontWeight: 600 }}>{a.vvip && <VVIPBadge size="sm" />}{a.name}</span>
             <span className="row gap-3" style={{ alignItems: "center" }}><span className="mono" style={{ fontSize: 11.5 }}>{a.avgOrderValue}</span><span style={{ fontSize: 10, color: "#D97706", letterSpacing: 1 }}>{"★".repeat(a.rating)}</span></span>
           </div>)}
         </div>
@@ -175,7 +175,7 @@ function MG02_Brands({ nav }) {
           <div style={{ padding: "18px 20px 16px", background: `linear-gradient(150deg, ${wash} 0%, var(--surface) 50%)` }}>
           <div className="row between" style={{ marginBottom: 14 }}>
             <div className="row gap-3"><div style={{ width: 40, height: 40, borderRadius: 10, background: wash, border: `1px solid ${hue}44`, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ color: hue, fontWeight: 800, fontSize: 16, fontFamily: "var(--f-ui)" }}>{a.name[0]}</span></div>
-              <div><div className="h3">{a.name}{a.vvip && <span style={{ marginLeft: 6 }}><VVIPStar /></span>}</div><div className="body-sm" style={{ fontSize: 12 }}>{a.segment} · {a.website}</div></div></div>
+              <div><div className="h3">{a.name}{a.vvip && <span style={{ marginLeft: 6 }}><VVIPBadge size="sm" /></span>}</div><div className="body-sm" style={{ fontSize: 12 }}>{a.segment} · {a.website}</div></div></div>
             <span className="pill pill-sm" style={{ background: "var(--surface)", color: hue, fontWeight: 700 }}>{a.rating}★</span>
           </div>
           <div className="grid grid-3 gap-2" style={{ marginBottom: 12 }}>
@@ -334,7 +334,7 @@ function MG04_Tracker({ nav }) {
           <tbody>
             {rows.map(r => <tr key={r.id} className="clickable" title="Click to open the full requirement" onClick={() => setPopupId(r.id)}>
               {SHOWN.map(([k]) => <td key={k} style={{ padding: "4px 6px", fontSize: 10.5, whiteSpace: "nowrap", borderBottom: "1px solid var(--border)", position: k === "brand" ? "sticky" : undefined, left: k === "brand" ? 0 : undefined, zIndex: k === "brand" ? 1 : undefined, background: k === "brand" ? "var(--surface)" : undefined, maxWidth: k === "remarks" || k === "feedback" ? 180 : undefined, overflow: "hidden", textOverflow: "ellipsis" }}>
-                {k === "brand" ? <span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<b>{r.brand}</b></span>
+                {k === "brand" ? <span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<b>{r.brand}</b></span>
                   : k === "stage" ? <StatusPill status={r.stage} size="sm" />
                   : k === "lastCode" || k === "locked" ? <span className="mono" style={{ fontSize: 11.5 }}>{r[k]}</span>
                   : k === "po" || k === "rmOrd" ? YN(r[k])
@@ -404,7 +404,7 @@ function MG03_Reports({ nav }) {
         {DG.ACCOUNTS.map(a => { const on = a.id === accId; return <button key={a.id} onClick={() => setAccId(a.id)}
           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
             border: on ? "2px solid var(--brand)" : "1px solid var(--border)", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--ink)", fontWeight: 600, fontSize: 13 }}>
-          {a.vvip && <VVIPStar />}{a.name}</button>; })}
+          {a.vvip && <VVIPBadge size="sm" />}{a.name}</button>; })}
       </div>
       <div className="grid grid-4 gap-3">
         <ReportKPI label="Decision cycle · query → PO" value={String(decisionDays)} suffix="days" delta="avg, last 4 projects" good={decisionDays < 30} />

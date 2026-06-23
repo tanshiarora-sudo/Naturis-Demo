@@ -197,7 +197,7 @@ function LB02_Incoming({ nav, role }) {
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
               <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
               <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.categoryGroup} · {r.category}</td>
@@ -491,7 +491,7 @@ function LB_Eval({ params, nav }) {
             <tbody>
               {rows.map((r, i) => <tr key={r.id} className="clickable" onClick={() => setOpenId(r.id)} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                 <td style={{ padding: "8px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
-                <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+                <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
                 <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
                 <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
                 <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.categoryGroup} · {r.category}</td>
@@ -925,7 +925,7 @@ function LB03_Live({ params, nav, role }) {
             {shown.map((r, i) => { const z = tatZone(r.age || 0); const term = ["Archived", "Client approved"].includes(r.status);
               return <tr key={r.id} className="clickable" onClick={() => setSel(r.id)} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
               <td style={{ padding: "8px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPBadge size="sm" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.submittedBy}</td>
               <td style={{ padding: "8px 12px", fontSize: 12.5, fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
               <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>

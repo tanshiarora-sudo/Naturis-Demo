@@ -120,7 +120,7 @@ function AD07_Accounts() {
     <PageHead title="Accounts" sub="CRM profiles · per-account notification routing (≤ 5 users)" />
     <div className="grid gap-4" style={{ gridTemplateColumns: "240px 1fr", alignItems: "start" }}>
       <div className="card" style={{ padding: 8 }}>{DA.ACCOUNTS.map(a => <button key={a.id} onClick={() => setSel(a.id)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "none", background: sel === a.id ? "var(--brand-wash)" : "transparent", cursor: "pointer", marginBottom: 2 }}>
-        <div className="row gap-2">{a.vvip && <VVIPStar />}<span style={{ fontWeight: sel === a.id ? 600 : 500, fontSize: 13 }}>{a.name}</span></div><div className="body-sm" style={{ fontSize: 11 }}>{a.segment}</div></button>)}</div>
+        <div className="row gap-2">{a.vvip && <VVIPBadge size="sm" />}<span style={{ fontWeight: sel === a.id ? 600 : 500, fontSize: 13 }}>{a.name}</span></div><div className="body-sm" style={{ fontSize: 11 }}>{a.segment}</div></button>)}</div>
       <div className="col gap-4">
         <div className="card"><SectionTitle sub={acc.website + " · " + acc.segment}>{acc.name}{acc.vvip && <span style={{ marginLeft: 6 }}><VVIPBadge size="sm" /></span>}</SectionTitle>
           <div className="grid grid-3 gap-3">{[["Avg order", acc.avgOrderValue], ["Rating", "★".repeat(acc.rating)], ["Product mix", acc.productMix.join(", ")]].map(([l, v]) => <div key={l}><div className="label">{l}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div></div>)}</div>
@@ -311,7 +311,7 @@ function AD10_AddressBook() {
       {accounts.map(client => { const addrs = groups[client]; const activeN = addrs.filter(a => a.status !== "discarded").length;
         return <div key={client} className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div className="row between" style={{ padding: "11px 16px", background: "var(--grad-brand)", color: "#fff" }}>
-            <span className="row gap-2" style={{ alignItems: "center" }}>{((DA.ACCOUNTS || []).find(a => a.name === client) || {}).vvip && <VVIPStar size={14} />}<span style={{ fontWeight: 800, fontSize: 14 }}>{client}</span>
+            <span className="row gap-2" style={{ alignItems: "center" }}>{((DA.ACCOUNTS || []).find(a => a.name === client) || {}).vvip && <VVIPBadge size="sm" />}<span style={{ fontWeight: 800, fontSize: 14 }}>{client}</span>
               <span className="pill pill-sm" style={{ background: "rgba(255,255,255,.2)", color: "#fff", fontWeight: 700 }}>{addrs.length} address{addrs.length > 1 ? "es" : ""}</span></span>
             <button className="btn btn-sm" style={{ background: "rgba(255,255,255,.18)", color: "#fff", border: "none" }} title={"Add another address for " + client} onClick={() => addFor(client)}><Icon name="plus" size={13} color="#fff" /> Add</button>
           </div>

@@ -1303,7 +1303,7 @@ function SP07_Pipeline({ nav }) {
         <div className="row between" style={{ padding: "14px 18px" }}>
           <div className="row gap-3">
             <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--brand-wash)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="brand" size={17} color="var(--brand)" /></div>
-            <div><div className="h3">{brand}{anyVvip && <span style={{ marginLeft: 6 }}><VVIPStar /></span>}</div>
+            <div><div className="h3">{brand}{anyVvip && <span style={{ marginLeft: 6 }}><VVIPBadge size="sm" /></span>}</div>
               <div className="body-sm" style={{ fontSize: 12 }}>{items.length} live requirement{items.length !== 1 ? "s" : ""}</div></div>
           </div>
         </div>

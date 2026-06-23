@@ -480,6 +480,11 @@ REQUIREMENTS.forEach(function (r) {
   if (!r.labStage && SEED_LABSTAGE[r.status]) r.labStage = SEED_LABSTAGE[r.status];
   if (!r.dispatchedOn && SEED_DISPATCH_DATE[r.status]) r.dispatchedOn = SEED_DISPATCH_DATE[r.status];
   r.createdBy = r.submittedBy; r.account = r.account || r.brand; r.manualFlag = (r.flags || []).length > 0;
+  // VVIP is an ACCOUNT-level fact (the single source of truth) — derive every requirement's
+  // flag from its account so the same brand is VVIP everywhere, on every screen, not just on
+  // hand-seeded reqs. This is what setVvipOverride keeps in sync at runtime.
+  var _acc = ACCOUNTS.find(function (a) { return a.name === (r.account || r.brand) || a.name === r.brand; });
+  if (_acc) r.vvip = !!_acc.vvip;
   var t = DESK_TECH[r.projectType];
   // anything the lab is actively working has been acknowledged & assigned to a chemist
   if (LAB_STARTED.indexOf(r.status) >= 0) { r.assigned = true; if (!r.tracker) r.tracker = t; }
@@ -1079,7 +1084,8 @@ function _persist() {
   try {
     localStorage.setItem(NATURIS_STATE_KEY, JSON.stringify({
       seq: _seq, eseq: _evSeq, profiles: window.NaturisData.PROFILE_OF, addr: window.NaturisData.SHIP_ADDRESSES, reqs: REQUIREMENTS, tl: REQUIREMENT_TIMELINES, notifs: NOTIFICATIONS,
-      audit: AUDIT.slice(), fit: FIT_SCORES, ci: window.NaturisData.CI_DATA }));
+      audit: AUDIT.slice(), fit: FIT_SCORES, ci: window.NaturisData.CI_DATA,
+      acc: ACCOUNTS.map(function (a) { return { id: a.id, vvip: a.vvip }; }) }));
   } catch (e) {}
 }
 function _hydrate(raw) {
@@ -1096,6 +1102,7 @@ function _hydrate(raw) {
   _seq = Math.max(_seq, st.seq);
   if (st.eseq) _evSeq = Math.max(_evSeq, st.eseq);
   if (st.addr) window.NaturisData.SHIP_ADDRESSES = st.addr;
+  if (st.acc) st.acc.forEach(function (a) { var e = ACCOUNTS.find(function (x) { return x.id === a.id; }); if (e) e.vvip = a.vvip; });
   return true;
 }
 (function restoreState() {
