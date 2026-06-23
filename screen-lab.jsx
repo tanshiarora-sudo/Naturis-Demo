@@ -179,7 +179,7 @@ function LB02_Incoming({ nav, role }) {
           </thead>
           <tbody>
             {rows.map(r => <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" title="VVIP" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
               <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
               <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.categoryGroup} · {r.category}</td>
@@ -239,36 +239,68 @@ function EvaluationPanel({ req }) {
   const rmList = ev.rmList && ev.rmList.length ? ev.rmList : rmSeed;
   const updRM = arr => set({ rmList: arr });
   function addRM() { const n = newIng.trim(); if (!n) return; set({ rmList: [...rmList, { name: n, needed: false, supplier: "", eta: "", src: "manual" }] }); setNewIng(""); }
-  // Packaging — seeded from the SPOC's packaging selection
-  const pmSeed = ((req.briefDetail && req.briefDetail.packaging) || []).filter(p => p && p.desc).map(p => ({ desc: p.desc, source: p.source || "naturis", qty: "", needed: false, supplier: "", eta: "" }));
+  // Packaging — seeded from the SPOC's packaging selection (falls back to the brief's pack spec)
+  const bd = req.briefDetail || {};
+  const pmFromArray = (bd.packaging || []).filter(p => p && p.desc).map(p => ({ desc: p.desc, source: p.source || "naturis", qty: "", needed: false, supplier: "", eta: "" }));
+  const pmSeed = pmFromArray.length ? pmFromArray : ((req.packaging || bd.packSize) ? [{ desc: req.packaging || bd.packSize, source: "naturis", qty: "", needed: false, supplier: "", eta: "" }] : []);
   const pmList = ev.pmList && ev.pmList.length ? ev.pmList : pmSeed;
   const updPM = arr => set({ pmList: arr });
   function addPM() { const n = newPack.trim(); if (!n) return; set({ pmList: [...pmList, { desc: n, source: "naturis", qty: "", needed: false, supplier: "", eta: "", manual: true }] }); setNewPack(""); }
-  const YN = ({ val, onYes, onNo }) => <div className="row gap-1">
+  const YN = ({ val, onYes, onNo }) => <div className="row" style={{ gap: 0, background: "var(--page)", borderRadius: 9, padding: 3, border: "1px solid var(--border)" }}>
     {[["yes", "Needed", "var(--coral)"], ["no", "Not needed", "var(--ok)"]].map(([v, l, c]) =>
-      <button key={v} onClick={() => v === "yes" ? onYes() : onNo()} className="btn btn-sm" style={{ background: val === v ? c : "transparent", color: val === v ? "#fff" : "var(--muted)", border: val === v ? "none" : "1px solid var(--border)" }}>{l}</button>)}
+      <button key={v} onClick={() => v === "yes" ? onYes() : onNo()} style={{ border: "none", cursor: "pointer", borderRadius: 7, padding: "5px 13px", fontSize: 11.5, fontWeight: 700, fontFamily: "var(--f-ui)", transition: "all .12s", background: val === v ? c : "transparent", color: val === v ? "#fff" : "var(--muted)", boxShadow: val === v ? "var(--sh-sm)" : "none" }}>{l}</button>)}
   </div>;
-  const procFields = (row, onChange) => <div className="row gap-2 wrap" style={{ width: "100%", marginTop: 8 }}>
-    <input className="input" style={{ flex: "1 1 160px", height: 30, fontSize: 11.5 }} placeholder="Supplier name" value={row.supplier || ""} onChange={e => onChange({ supplier: e.target.value })} />
-    <input className="input" type="date" style={{ width: 150, height: 30, fontSize: 11.5 }} title="Expected by" value={row.eta || ""} onChange={e => onChange({ eta: e.target.value })} />
-    {row.eta && <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)" }}>by {row.eta.slice(5)}</span>}
+  const procFields = (row, onChange) => <div className="row gap-2 wrap" style={{ width: "100%", marginTop: 9, paddingTop: 9, borderTop: "1px dashed var(--coral)", alignItems: "center" }}>
+    <span className="row gap-1" style={{ alignItems: "center", fontSize: 10, fontWeight: 800, color: "var(--coral-dark)", letterSpacing: ".03em", textTransform: "uppercase" }}><Icon name="alert" size={11} color="var(--coral-dark)" /> To procure</span>
+    <input className="input" style={{ flex: "1 1 160px", height: 30, fontSize: 11.5 }} placeholder="Vendor who'll fulfil this" value={row.supplier || ""} onChange={e => onChange({ supplier: e.target.value })} />
+    <span className="body-sm" style={{ fontSize: 10.5, color: "var(--muted)" }}>arrives by</span>
+    <input className="input" type="date" style={{ width: 150, height: 30, fontSize: 11.5 }} title="Expected arrival date" value={row.eta || ""} onChange={e => onChange({ eta: e.target.value })} />
+    {row.eta && <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>{row.eta.slice(8)}/{row.eta.slice(5, 7)}</span>}
+  </div>;
+  const needBtn = (on, onClick) => <button onClick={onClick} style={{ border: "none", cursor: "pointer", borderRadius: 999, padding: "5px 13px", fontSize: 11.5, fontWeight: 700, fontFamily: "var(--f-ui)", display: "inline-flex", alignItems: "center", gap: 5, transition: "all .12s", background: on ? "var(--coral)" : "var(--surface)", color: on ? "#fff" : "var(--muted)", boxShadow: on ? "0 2px 8px rgba(225,90,80,.3)" : "inset 0 0 0 1px var(--border)" }}>
+    <Icon name={on ? "check" : "plus"} size={11} color={on ? "#fff" : "var(--muted)"} />{on ? "Needed" : "Mark needed"}</button>;
+  const rowHover = (needed) => ({
+    onMouseEnter: e => { e.currentTarget.style.boxShadow = "var(--sh-sm)"; e.currentTarget.style.transform = "translateY(-1px)"; },
+    onMouseLeave: e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = ""; },
+  });
+  const rmNeeded = rmList.filter(x => x.needed).length, pmNeeded = pmList.filter(x => x.needed).length;
+  const rmDone = ev.rm === "yes" || ev.rm === "no", pmDone = ev.pm === "yes" || ev.pm === "no", slotDone = !!ev.booking;
+  const Tag = ({ children }) => <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--muted)", fontSize: 9, fontWeight: 700, border: "1px solid var(--border)" }}>{children}</span>;
+  const secHead = (n, title, summary, yn) => <div className="row between" style={{ alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+    <span className="row gap-2" style={{ alignItems: "center" }}>
+      <span style={{ width: 24, height: 24, borderRadius: 8, background: "var(--brand-wash)", color: "var(--brand)", fontWeight: 800, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
+      <span style={{ fontWeight: 700, fontSize: 14 }}>{title}</span>
+      {summary && <span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)", fontWeight: 600 }}>{summary}</span>}
+    </span>
+    {yn}
   </div>;
   return <div className="card">
     <SectionTitle sub="Raw material · packaging · slot — saved as you go">Lab evaluation</SectionTitle>
+    {/* readiness strip — what's left before this can be accepted */}
+    <div className="row gap-2 wrap" style={{ marginBottom: 16 }}>
+      {[["Raw material", rmDone, ev.rm === "yes" ? (rmNeeded + " to procure") : ev.rm === "no" ? "nothing to procure" : "review"],
+        ["Packaging", pmDone, ev.pm === "yes" ? (pmNeeded + " to procure") : ev.pm === "no" ? "nothing to procure" : "review"],
+        ["Station slot", slotDone, slotDone ? "booked" : "pending"]].map(([l, done, sub]) =>
+        <div key={l} className="row gap-2" style={{ alignItems: "center", padding: "6px 12px", borderRadius: 999, background: done ? "var(--approved-bg)" : "var(--page)", border: "1px solid " + (done ? "var(--approved-fg)" : "var(--border)") }}>
+          <span style={{ width: 16, height: 16, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", background: done ? "var(--approved-fg)" : "var(--border-strong)" }}>{done && <Icon name="check" size={10} color="#fff" />}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: done ? "var(--approved-fg)" : "var(--ink)" }}>{l}</span>
+          <span className="body-sm" style={{ fontSize: 10.5 }}>· {sub}</span>
+        </div>)}
+    </div>
 
     {/* 1 · RAW MATERIAL */}
-    <div className="row between" style={{ alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
-      <div className="label" style={{ fontSize: 11 }}>1 · Raw material</div>
-      <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 11.5 }}>Procurement needed?</span><YN val={ev.rm} onYes={() => set({ rm: "yes" })} onNo={() => set({ rm: "no", rmList: rmList.map(x => ({ ...x, needed: false })) })} /></span>
-    </div>
-    <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 8 }}>{past ? <>From formulation <b className="mono">{past.code}</b> ({past.name}) + the brief's actives.</> : <>From the brief's actives (new development — no base formulation).</>}</div>
+    {secHead(1, "Raw material", rmList.length + " listed" + (rmNeeded ? " · " + rmNeeded + " flagged" : ""),
+      <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 11.5 }}>Procurement needed?</span><YN val={ev.rm} onYes={() => set({ rm: "yes" })} onNo={() => set({ rm: "no", rmList: rmList.map(x => ({ ...x, needed: false })) })} /></span>)}
+    <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 10 }}>{past ? <>From formulation <b className="mono">{past.code}</b> ({past.name}) + the brief's actives.</> : <>From the brief's actives (new development — no base formulation).</>}</div>
     <div className="col gap-2">
-      {rmList.map((a, i) => <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--page)" }}>
-        <div className="row between" style={{ flexWrap: "wrap", gap: 6 }}>
-          <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 13 }}>{a.name}</span>
-            <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--muted)", fontSize: 9 }}>{a.src === "formulation" ? "formulation" : a.src === "manual" ? "added" : "brief"}</span></span>
+      {rmList.map((a, i) => <div key={i} {...rowHover(a.needed)} style={{ padding: "10px 12px", borderRadius: 10, background: a.needed ? "var(--coral-wash)" : "var(--surface)", border: "1px solid " + (a.needed ? "var(--coral)" : "var(--border)"), borderLeft: "3px solid " + (a.needed ? "var(--coral)" : "var(--border)"), transition: "transform .12s, box-shadow .12s" }}>
+        <div className="row between" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          <span className="row gap-2" style={{ alignItems: "center" }}>
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: a.needed ? "var(--coral)" : "var(--brand-light)" }} />
+            <span className="body-sm" style={{ fontSize: 13, fontWeight: 600 }}>{a.name}</span>
+            <Tag>{a.src === "formulation" ? "formulation" : a.src === "manual" ? "added" : "brief"}</Tag></span>
           {ev.rm === "yes" && <div className="row gap-2" style={{ alignItems: "center" }}>
-            <button className="btn btn-sm" onClick={() => updRM(rmList.map((x, j) => j === i ? { ...x, needed: !x.needed } : x))} style={{ background: a.needed ? "var(--coral)" : "transparent", color: a.needed ? "#fff" : "var(--muted)", border: a.needed ? "none" : "1px solid var(--border)" }}>{a.needed ? "✓ Needed" : "Mark needed"}</button>
+            {needBtn(a.needed, () => updRM(rmList.map((x, j) => j === i ? { ...x, needed: !x.needed } : x)))}
             {a.src === "manual" && <button className="btn btn-ghost btn-sm" onClick={() => updRM(rmList.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>}
           </div>}
         </div>
@@ -280,38 +312,51 @@ function EvaluationPanel({ req }) {
       <button className="btn btn-secondary" disabled={!newIng.trim()} onClick={addRM}><Icon name="plus" size={14} /> Add raw material</button>
     </div>
 
+    <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
+
     {/* 2 · PACKAGING */}
-    <div className="row between" style={{ alignItems: "center", margin: "18px 0 6px", flexWrap: "wrap", gap: 6 }}>
-      <div className="label" style={{ fontSize: 11 }}>2 · Packaging</div>
-      <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 11.5 }}>Procurement needed?</span><YN val={ev.pm} onYes={() => set({ pm: "yes" })} onNo={() => set({ pm: "no", pmList: pmList.map(x => ({ ...x, needed: false })) })} /></span>
+    {secHead(2, "Packaging", (pmList.length ? pmList.length + " listed" : "none in brief") + (pmNeeded ? " · " + pmNeeded + " flagged" : ""),
+      <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 11.5 }}>Procurement needed?</span><YN val={ev.pm} onYes={() => set({ pm: "yes" })} onNo={() => set({ pm: "no", pmList: pmList.map(x => ({ ...x, needed: false })) })} /></span>)}
+    <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 10 }}>The SPOC's packaging brief — confirm what you have, and flag anything inadequate with a vendor + procurement date.</div>
+    {/* packaging brief from the SPOC */}
+    <div className="grid grid-4 gap-2" style={{ marginBottom: 12 }}>
+      {[["Units / MOQ", req.moq], ["Pack size", req.packaging || bd.packSize], ["Fill volume", bd.fillVol], ["Label", bd.labelDesc]].map(([l, v]) =>
+        <div key={l} style={{ padding: "8px 10px", borderRadius: 8, background: "var(--page)" }}>
+          <div className="label" style={{ fontSize: 8 }}>{l}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, marginTop: 1 }}>{v || "—"}</div>
+        </div>)}
     </div>
-    <div className="body-sm" style={{ fontSize: 11.5, marginBottom: 8 }}>From the SPOC's packaging selection — set the quantity and flag what needs procuring.</div>
     <div className="col gap-2">
-      {pmList.length ? pmList.map((p, i) => <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--page)" }}>
-        <div className="row between" style={{ flexWrap: "wrap", gap: 6 }}>
-          <span className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ fontSize: 13 }}>{p.desc}</span>
-            <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--muted)", fontSize: 9 }}>{p.source === "client" ? "client-supplied" : "Naturis"}</span></span>
+      {pmList.length ? pmList.map((p, i) => <div key={i} {...rowHover(p.needed)} style={{ padding: "10px 12px", borderRadius: 10, background: p.needed ? "var(--coral-wash)" : "var(--surface)", border: "1px solid " + (p.needed ? "var(--coral)" : "var(--border)"), borderLeft: "3px solid " + (p.needed ? "var(--coral)" : "var(--border)"), transition: "transform .12s, box-shadow .12s" }}>
+        <div className="row between" style={{ flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          <span className="row gap-2" style={{ alignItems: "center" }}>
+            <Icon name="dispatch" size={13} color={p.needed ? "var(--coral)" : "var(--brand-light)"} />
+            <span className="body-sm" style={{ fontSize: 13, fontWeight: 600 }}>{p.desc}</span>
+            <Tag>{p.source === "client" ? "client-supplied" : "Naturis"}</Tag></span>
           <div className="row gap-2" style={{ alignItems: "center" }}>
-            <input className="input" style={{ width: 120, height: 30, fontSize: 11.5 }} placeholder="Qty to decide" value={p.qty || ""} onChange={e => updPM(pmList.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))} />
-            {ev.pm === "yes" && <button className="btn btn-sm" onClick={() => updPM(pmList.map((x, j) => j === i ? { ...x, needed: !x.needed } : x))} style={{ background: p.needed ? "var(--coral)" : "transparent", color: p.needed ? "#fff" : "var(--muted)", border: p.needed ? "none" : "1px solid var(--border)" }}>{p.needed ? "✓ Needed" : "Mark needed"}</button>}
+            <input className="input" style={{ width: 130, height: 30, fontSize: 11.5 }} placeholder="Qty available" title="How many do we already have?" value={p.qty || ""} onChange={e => updPM(pmList.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))} />
+            {ev.pm === "yes" && needBtn(p.needed, () => updPM(pmList.map((x, j) => j === i ? { ...x, needed: !x.needed } : x)))}
             {p.manual && <button className="btn btn-ghost btn-sm" onClick={() => updPM(pmList.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>}
           </div>
         </div>
         {ev.pm === "yes" && p.needed && procFields(p, patch => updPM(pmList.map((x, j) => j === i ? { ...x, ...patch } : x)))}
-      </div>) : <div className="body-sm" style={{ fontSize: 12, color: "var(--muted)" }}>No packaging captured in the brief — add it below.</div>}
+      </div>) : <div className="body-sm" style={{ fontSize: 12, color: "var(--muted)", padding: "10px 12px", borderRadius: 10, background: "var(--page)", border: "1px dashed var(--border)" }}>No packaging captured in the brief — add it below.</div>}
     </div>
     <div className="row gap-2" style={{ marginTop: 8 }}>
       <input className="input" style={{ flex: 1 }} placeholder="Add packaging manually…" value={newPack} onChange={e => setNewPack(e.target.value)} onKeyDown={e => e.key === "Enter" && addPM()} />
       <button className="btn btn-secondary" disabled={!newPack.trim()} onClick={addPM}><Icon name="plus" size={14} /> Add packaging</button>
     </div>
 
+    <div style={{ height: 1, background: "var(--border)", margin: "20px 0" }} />
+
     {/* 3 · STATION SLOT (booked by the planning manager) */}
-    <div className="row between wrap gap-2" style={{ padding: "12px 14px", borderRadius: 10, background: "var(--page)", marginTop: 18 }}>
-      <div className="row gap-2" style={{ alignItems: "center" }}><Icon name="calendar" size={15} color="var(--brand-accent)" />
-        <div><div style={{ fontSize: 13, fontWeight: 600 }}>Station slot — booked by the planning manager</div>
-          <div className="body-sm" style={{ fontSize: 11.5 }}>Allocated at the lab meeting (FIFO + VVIP priority). You'll see your slot here once booked.</div></div></div>
-      {ev.booking ? <span className="pill" style={{ background: "var(--brand)", color: "#fff", fontWeight: 600 }}>{ev.slot}</span>
-        : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 600 }}>pending planning desk</span>}
+    <div className="row between wrap gap-2" style={{ padding: "14px 16px", borderRadius: 12, background: ev.booking ? "var(--grad-brand)" : "var(--page)", border: ev.booking ? "none" : "1px dashed var(--border-strong)", color: ev.booking ? "#fff" : "var(--ink)" }}>
+      <div className="row gap-3" style={{ alignItems: "center" }}>
+        <span style={{ width: 38, height: 38, borderRadius: 10, background: ev.booking ? "rgba(255,255,255,.18)" : "var(--brand-wash)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="calendar" size={18} color={ev.booking ? "#fff" : "var(--brand-accent)"} /></span>
+        <div><div style={{ fontSize: 13.5, fontWeight: 700 }}>Station slot — booked by the planning manager</div>
+          <div className="body-sm" style={{ fontSize: 11.5, opacity: ev.booking ? .9 : 1 }}>Allocated at the lab meeting (FIFO + VVIP priority).</div></div></div>
+      {ev.booking ? <span className="pill" style={{ background: "rgba(255,255,255,.2)", color: "#fff", fontWeight: 700 }}><Icon name="check" size={12} color="#fff" /> {ev.slot}</span>
+        : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}><Icon name="clock" size={11} color="var(--review-fg)" /> pending planning desk</span>}
     </div>
   </div>;
 }
@@ -411,7 +456,7 @@ function LB_Eval({ params, nav }) {
             <tbody>
               {rows.map((r, i) => <tr key={r.id} className="clickable" onClick={() => setOpenId(r.id)} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                 <td style={{ padding: "8px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
-                <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+                <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
                 <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
                 <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
                 <td style={{ padding: "8px 12px", fontSize: 11.5, color: "var(--muted)", whiteSpace: "nowrap" }}>{r.categoryGroup} · {r.category}</td>
@@ -605,6 +650,57 @@ function PostApproval({ req }) {
   </div>;
 }
 
+// RM procurement tracker — mirrors the lab's NCL "RM details" flow (qty, raise to procurement, reminders, received status)
+function RMProcurementCard({ req, role }) {
+  window.useStore();
+  const ev = req.evaluation || {};
+  const fullList = ev.rmList || [];
+  const needed = fullList.map((x, i) => ({ x, i })).filter(o => o.x.needed);
+  const [to, setTo] = useState((ev.rmProcurement || {}).raisedTo || "Vikram (Procurement)");
+  if (!needed.length) return null;
+  const isLab = (role || "lab") === "lab";
+  const by = techOfReq(req);
+  const proc = ev.rmProcurement || { reminders: [] };
+  const recv = needed.filter(o => o.x.received).length;
+  const allIn = recv === needed.length;
+  const awaited = needed.filter(o => !o.x.received).map(o => o.x.name);
+  const setItem = (i, patch) => window.NaturisStore.setEvaluation(req.id, { rmList: fullList.map((x, j) => j === i ? { ...x, ...patch } : x) });
+  return <div className="card" style={{ borderTop: "3px solid " + (allIn ? "var(--approved-fg)" : "var(--coral)") }}>
+    <div className="row between wrap gap-2" style={{ alignItems: "center" }}>
+      <SectionTitle sub="What's needed, who it's raised to, and what's arrived — gates the start of trials.">RM procurement</SectionTitle>
+      <span className="pill" style={{ background: allIn ? "var(--approved-bg)" : "var(--review-bg)", color: allIn ? "var(--approved-fg)" : "var(--review-fg)", fontWeight: 700 }}>
+        <Icon name={allIn ? "check" : "clock"} size={12} color={allIn ? "var(--approved-fg)" : "var(--review-fg)"} /> {allIn ? "All RMs received" : recv + " / " + needed.length + " received"}</span>
+    </div>
+    {!allIn && awaited.length > 0 && <div className="body-sm" style={{ fontSize: 11.5, color: "var(--coral-dark)", marginBottom: 8 }}>Awaiting: {awaited.join(", ")}.</div>}
+
+    {/* raise to procurement + reminder log */}
+    <div className="row between wrap gap-2" style={{ padding: "10px 12px", borderRadius: 10, background: "var(--page)", marginBottom: 12, alignItems: "center" }}>
+      {proc.raisedAt ? <div className="body-sm" style={{ fontSize: 12 }}><b>Raised to {proc.raisedTo}</b> · {proc.raisedAt}{(proc.reminders || []).length ? <span style={{ color: "var(--muted)" }}> · {proc.reminders.length} reminder{proc.reminders.length > 1 ? "s" : ""} ({proc.reminders.join(", ")})</span> : ""}</div>
+        : <div className="row gap-2" style={{ alignItems: "center", flexWrap: "wrap" }}><span className="body-sm" style={{ fontSize: 12 }}>Raise the RM request to:</span><input className="input" style={{ width: 180, height: 30, fontSize: 12 }} value={to} onChange={e => setTo(e.target.value)} /></div>}
+      {isLab && <div className="row gap-2">
+        {!proc.raisedAt ? <button className="btn btn-sm" disabled={!to.trim()} onClick={() => window.NaturisStore.raiseRMRequest(req.id, to.trim(), by)}><Icon name="note" size={13} /> Raise request</button>
+          : !allIn && <button className="btn btn-secondary btn-sm" onClick={() => window.NaturisStore.addRMReminder(req.id, by)}><Icon name="note" size={13} /> Send reminder</button>}
+      </div>}
+    </div>
+
+    {/* per-RM list — qty + received */}
+    <div className="col gap-2">
+      {needed.map(({ x, i }) => <div key={i} className="row between wrap gap-2" style={{ padding: "9px 12px", borderRadius: 9, background: x.received ? "var(--approved-bg)" : "var(--surface)", border: "1px solid " + (x.received ? "var(--approved-fg)" : "var(--border)"), alignItems: "center" }}>
+        <span className="row gap-2" style={{ alignItems: "center", minWidth: 0 }}>
+          <Icon name={x.received ? "check" : "clock"} size={13} color={x.received ? "var(--approved-fg)" : "var(--muted)"} />
+          <span className="body-sm" style={{ fontSize: 13, fontWeight: 600 }}>{x.name}</span>
+          {x.vendor || x.supplier ? <span className="pill pill-sm" style={{ background: "var(--page)", color: "var(--muted)" }}>{x.vendor || x.supplier}</span> : null}
+          {x.received && x.receivedAt && <span className="body-sm" style={{ fontSize: 10.5, color: "var(--approved-fg)" }}>received {x.receivedAt}</span>}
+        </span>
+        <span className="row gap-2" style={{ alignItems: "center" }}>
+          <input className="input" style={{ width: 110, height: 30, fontSize: 11.5 }} placeholder="Qty (250 g)" value={x.qty || ""} onChange={e => setItem(i, { qty: e.target.value })} />
+          {isLab && <button className="btn btn-sm" onClick={() => window.NaturisStore.setRMReceived(req.id, i, !x.received, by)} style={{ background: x.received ? "var(--approved-fg)" : "transparent", color: x.received ? "#fff" : "var(--muted)", border: x.received ? "none" : "1px solid var(--border)" }}>{x.received ? "✓ Received" : "Mark received"}</button>}
+        </span>
+      </div>)}
+    </div>
+  </div>;
+}
+
 function WipDetail({ req, nav, role }) {
   window.useStore();
   const stages = DL.LAB_STAGES;
@@ -662,6 +758,8 @@ function WipDetail({ req, nav, role }) {
           : <span className="pill pill-sm" style={{ background: "var(--review-bg)", color: "var(--review-fg)", fontWeight: 700 }}>awaiting a slot from planning</span>}
       </div>
     </div>}
+
+    {!postApproval && <RMProcurementCard req={req} role={role} />}
 
     {!postApproval && (() => {
       const isLab = (role || "lab") === "lab";
@@ -785,7 +883,7 @@ function LB03_Live({ params, nav, role }) {
             {shown.map((r, i) => { const z = tatZone(r.age || 0); const term = ["Archived", "Client approved"].includes(r.status);
               return <tr key={r.id} className="clickable" onClick={() => setSel(r.id)} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
               <td style={{ padding: "8px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
               <td style={{ padding: "8px 12px", fontSize: 11.5, whiteSpace: "nowrap" }}>{r.submittedBy}</td>
               <td style={{ padding: "8px 12px", fontSize: 12.5, fontWeight: 600, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
               <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
@@ -810,6 +908,8 @@ function LB05_Approved() {
   window.useStore();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [popId, setPopId] = useState(null);
+  const Popup = window.RequirementPopup;
   const done = DL.REQUIREMENTS.filter(r => ["Dispatch awaiting SPOC approval", "Sent to client", "Client approved", "In stability", "Archived"].includes(r.status));
   const parse = s => { const t2 = Date.parse(s); return isNaN(t2) ? null : t2; };
   const rows = done.filter(r => { const dd = parse(r.dispatchedOn); if (!dd) return !from && !to;
@@ -825,7 +925,7 @@ function LB05_Approved() {
       {rows.length ? <div style={{ overflowX: "auto", maxHeight: "70vh", overflowY: "auto" }}><table className="tbl" style={{ minWidth: 1700 }}>
         <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["S.No", "Product", "Client", "Sent to", "Code", "Pcs", "Qty", "Dispatched", "Dispatch note", "Photos", "Purpose", "Docket", "Courier", "Intimation to QC", "Stability start", "Approval"].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".03em", textTransform: "uppercase", padding: "8px 10px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
         <tbody>{window.vvipSort(rows).map((r, i) => { const dp = r.dispatch || {}; const set = (k, v) => window.NaturisStore.setDispatchField(r.id, k, v, techOfReq(r));
-          return <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
+          return <tr key={r.id} className="clickable" onClick={() => setPopId(r.id)} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
             <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)" }}>{i + 1}</td>
             <td style={{ padding: "6px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}><span className="row gap-2">{r.vvip && <VVIPBadge size="sm" />}{r.title}</span></td>
             <td style={{ padding: "6px 10px", fontSize: 12, whiteSpace: "nowrap" }}><b>{r.brand}</b></td>
@@ -839,12 +939,13 @@ function LB05_Approved() {
             <td style={{ padding: "6px 10px", fontSize: 11, color: "var(--muted)", maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dp.purpose || "Samples as per request for evaluation"}</td>
             <td style={{ padding: "6px 10px" }}><span className="mono" style={{ fontSize: 10.5 }}>{dp.docket || ("DTDC-88" + (4200 + (parseInt(r.id.slice(-3)) || 0)))}</span></td>
             <td style={{ padding: "6px 10px", fontSize: 11, whiteSpace: "nowrap" }}>{dp.courier || (dp.docket && dp.docket.indexOf("Z") === 0 ? "Blue Dart" : "DTDC")}</td>
-            <td style={{ padding: "4px 8px" }}><select className="select" style={{ height: 28, fontSize: 11, width: 90 }} value={dp.qcIntimation || "No"} onChange={e => set("qcIntimation", e.target.value)}><option>No</option><option>Yes</option></select></td>
-            <td style={{ padding: "4px 8px" }}><input className="input" type="date" style={{ height: 28, fontSize: 11, width: 130 }} value={dp.stabilityStart || ""} onChange={e => set("stabilityStart", e.target.value)} /></td>
-            <td style={{ padding: "4px 8px" }}><select className="select" style={{ height: 28, fontSize: 11, width: 120 }} value={dp.approvalStatus || (["Client approved", "In stability", "Archived"].includes(r.status) ? "Approved" : "Pending")} onChange={e => set("approvalStatus", e.target.value)}><option>Pending</option><option>Approved</option><option>Rejected</option><option>Rework</option></select></td>
+            <td style={{ padding: "4px 8px" }} onClick={e => e.stopPropagation()}><select className="select" style={{ height: 28, fontSize: 11, width: 90 }} value={dp.qcIntimation || "No"} onChange={e => set("qcIntimation", e.target.value)}><option>No</option><option>Yes</option></select></td>
+            <td style={{ padding: "4px 8px" }} onClick={e => e.stopPropagation()}><input className="input" type="date" style={{ height: 28, fontSize: 11, width: 130 }} value={dp.stabilityStart || ""} onChange={e => set("stabilityStart", e.target.value)} /></td>
+            <td style={{ padding: "4px 8px" }} onClick={e => e.stopPropagation()}><select className="select" style={{ height: 28, fontSize: 11, width: 120 }} value={dp.approvalStatus || (["Client approved", "In stability", "Archived"].includes(r.status) ? "Approved" : "Pending")} onChange={e => set("approvalStatus", e.target.value)}><option>Pending</option><option>Approved</option><option>Rejected</option><option>Rework</option></select></td>
           </tr>; })}</tbody></table></div>
         : <div style={{ textAlign: "center", padding: 36 }}><Icon name="search" size={20} color="var(--brand-light)" /><div className="body-sm" style={{ marginTop: 6 }}>No dispatches in this date range.</div></div>}
     </div>
+    {Popup && <Popup open={!!popId} onClose={() => setPopId(null)} reqId={popId} />}
   </div>;
 }
 

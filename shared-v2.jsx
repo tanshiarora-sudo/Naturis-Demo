@@ -20,6 +20,16 @@ function VVIPBadge({ size = "md", subtle }) {
   </span>;
 }
 
+/* ---------- VVIP STAR ---------- canonical compact marker for VVIP accounts (used everywhere a row/name needs it) */
+function VVIPStar({ size = 13, title = "VVIP account" }) {
+  return <span title={title} style={{ display: "inline-flex", flexShrink: 0, lineHeight: 0 }}>
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+      <polygon points="12 2 15 9 22 9.5 17 14.5 18.5 21.5 12 18 5.5 21.5 7 14.5 2 9.5 9 9"
+        fill="#F59E0B" stroke="#D97706" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  </span>;
+}
+
 /* ---------- PROJECT TYPE PILL ---------- */
 const PT_COLOR = {
   EPD: ["var(--pt-epd-bg)", "var(--pt-epd-fg)"],
@@ -223,6 +233,6 @@ function LabStationCalendar({ value, onChange, title, sub, readOnly }) {
 }
 
 Object.assign(window, {
-  FilterTiles, LabStationCalendar, VVIPBadge, ProjectTypePill, PT_COLOR, FormulationCode, SLAIndicator,
+  FilterTiles, LabStationCalendar, VVIPBadge, VVIPStar, ProjectTypePill, PT_COLOR, FormulationCode, SLAIndicator,
   Toggle, CompatibilityNote, ProjectTypePicker
 });

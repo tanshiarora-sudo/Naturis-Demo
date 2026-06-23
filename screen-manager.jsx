@@ -185,7 +185,7 @@ function ClientIntelMini({ req, nav }) {
   const health = acc.rating * 18 + 8;
   return <div className="card">
     <div className="row between" style={{ marginBottom: 12 }}>
-      <div className="row gap-2"><Icon name="intel" size={15} color="var(--brand-accent)" /><div className="h3">Client context</div>{acc.vvip && <Icon name="star" size={12} color="#D97706" />}</div>
+      <div className="row gap-2"><Icon name="intel" size={15} color="var(--brand-accent)" /><div className="h3">Client context</div>{acc.vvip && <VVIPStar />}</div>
       <button className="btn btn-ghost btn-sm" onClick={() => nav("CI-01")}>View all <Icon name="arrowRight" size={13} /></button>
     </div>
     <div className="row gap-3" style={{ alignItems: "center", marginBottom: 12 }}>
@@ -613,7 +613,7 @@ function CI01_Intelligence({ role }) {
               style={{ textAlign: "left", minWidth: 124, padding: "12px 16px", borderRadius: 12, cursor: "pointer", transition: "all .15s",
                 border: on ? "2px solid var(--brand)" : "1px solid var(--border)", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--ink)",
                 boxShadow: on ? "0 6px 16px rgba(18,57,95,.25)" : "var(--sh-sm)" }}>
-              <div className="row gap-2">{a.vvip && <Icon name="star" size={12} color={on ? "#FBBF24" : "#D97706"} />}<span style={{ fontWeight: 700, fontSize: 14 }}>{a.name}</span></div>
+              <div className="row gap-2">{a.vvip && <VVIPStar />}<span style={{ fontWeight: 700, fontSize: 14 }}>{a.name}</span></div>
               <div style={{ fontSize: 11, opacity: .75, marginTop: 2 }}>{a.segment}</div>
             </button>; })}
           </div>

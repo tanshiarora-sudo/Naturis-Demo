@@ -32,7 +32,6 @@ const NAV = {
   labmgr: [
     { id: "LM-01", label: "Dashboard", icon: "dashboard" },
     { id: "LB-02", label: "New requirements", icon: "incoming", badge: true },
-    { id: "LM-02", label: "Lab meeting", icon: "calendar", badge: true },
     { id: "LB-03", label: "Live query tracking", icon: "work" },
     { id: "LM-06", label: "Station board", icon: "calendar" },
     { id: "LM-03", label: "Planning & load", icon: "load" },

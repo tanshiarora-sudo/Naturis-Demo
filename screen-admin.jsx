@@ -120,7 +120,7 @@ function AD07_Accounts() {
     <PageHead title="Accounts" sub="CRM profiles · per-account notification routing (≤ 5 users)" />
     <div className="grid gap-4" style={{ gridTemplateColumns: "240px 1fr", alignItems: "start" }}>
       <div className="card" style={{ padding: 8 }}>{DA.ACCOUNTS.map(a => <button key={a.id} onClick={() => setSel(a.id)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 8, border: "none", background: sel === a.id ? "var(--brand-wash)" : "transparent", cursor: "pointer", marginBottom: 2 }}>
-        <div className="row gap-2">{a.vvip && <Icon name="star" size={12} color="#D97706" />}<span style={{ fontWeight: sel === a.id ? 600 : 500, fontSize: 13 }}>{a.name}</span></div><div className="body-sm" style={{ fontSize: 11 }}>{a.segment}</div></button>)}</div>
+        <div className="row gap-2">{a.vvip && <VVIPStar />}<span style={{ fontWeight: sel === a.id ? 600 : 500, fontSize: 13 }}>{a.name}</span></div><div className="body-sm" style={{ fontSize: 11 }}>{a.segment}</div></button>)}</div>
       <div className="col gap-4">
         <div className="card"><SectionTitle sub={acc.website + " · " + acc.segment}>{acc.name}{acc.vvip && <span style={{ marginLeft: 6 }}><VVIPBadge size="sm" /></span>}</SectionTitle>
           <div className="grid grid-3 gap-3">{[["Avg order", acc.avgOrderValue], ["Rating", "★".repeat(acc.rating)], ["Product mix", acc.productMix.join(", ")]].map(([l, v]) => <div key={l}><div className="label">{l}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div></div>)}</div>
@@ -275,52 +275,70 @@ function AD10_AddressBook() {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [editIdx, setEditIdx] = useState(-1);
-  const [f, setF] = useState({ client: "", contact: "", lines: "", status: "active" });
+  const [f, setF] = useState({ client: "", contact: "", label: "", lines: "", status: "active" });
   const all = DA.SHIP_ADDRESSES || [];
-  const list = all.filter(s => !q || (s.client + " " + s.contact).toLowerCase().includes(q.toLowerCase()));
+  const list = all.filter(s => !q || (s.client + " " + s.contact + " " + (s.label || "")).toLowerCase().includes(q.toLowerCase()));
+  // group by account — one card per client, every office stacked inside (a client can hold several addresses)
+  const groups = {}; list.forEach(s => { (groups[s.client] = groups[s.client] || []).push(s); });
+  const accounts = Object.keys(groups).sort();
   function save() {
     if (!f.client.trim()) return;
-    const rec = { client: f.client.trim(), contact: f.contact.trim() || "—", to: f.lines.split("\n").map(x => x.trim()).filter(Boolean), status: f.status };
+    const rec = { client: f.client.trim(), contact: f.contact.trim() || "—", label: f.label.trim(), to: f.lines.split("\n").map(x => x.trim()).filter(Boolean), status: f.status };
     if (editIdx >= 0) window.NaturisStore.updateShipAddress(editIdx, rec);
     else window.NaturisStore.addShipAddress(rec);
-    setF({ client: "", contact: "", lines: "", status: "active" }); setAdding(false); setEditIdx(-1);
+    setF({ client: "", contact: "", label: "", lines: "", status: "active" }); setAdding(false); setEditIdx(-1);
   }
-  function startEdit(s) { const idx = (DA.SHIP_ADDRESSES || []).indexOf(s); setEditIdx(idx); setF({ client: s.client, contact: s.contact === "—" ? "" : s.contact, lines: (s.to || []).join("\n"), status: s.status }); setAdding(true); }
+  function startEdit(s) { const idx = (DA.SHIP_ADDRESSES || []).indexOf(s); setEditIdx(idx); setF({ client: s.client, contact: s.contact === "—" ? "" : s.contact, label: s.label || "", lines: (s.to || []).join("\n"), status: s.status }); setAdding(true); }
+  function addFor(client) { setEditIdx(-1); setF({ client: client || "", contact: "", label: "", lines: "", status: "active" }); setAdding(true); }
   function del(s) { const idx = (DA.SHIP_ADDRESSES || []).indexOf(s); if (idx >= 0) window.NaturisStore.removeShipAddress(idx); }
   return <div className="col gap-5">
     <PageHead title="Ship-to address book" sub="Dispatch directory · the Naturis lab is always the 'From'. Green = active, red = discarded."
-      actions={<div className="row gap-2"><div style={{ position: "relative", width: 220 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div><button className="btn" onClick={() => { setEditIdx(-1); setF({ client: "", contact: "", lines: "", status: "active" }); setAdding(true); }}><Icon name="plus" size={15} /> Add address</button></div>} />
+      actions={<div className="row gap-2"><div style={{ position: "relative", width: 220 }}><span style={{ position: "absolute", left: 12, top: 11 }}><Icon name="search" size={16} color="var(--muted)" /></span><input className="input" style={{ paddingLeft: 36 }} placeholder="Search client…" value={q} onChange={e => setQ(e.target.value)} /></div><button className="btn" onClick={() => addFor("")}><Icon name="plus" size={15} /> Add address</button></div>} />
     {adding && <><div onClick={() => setAdding(false)} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.35)", zIndex: 95 }} />
       <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: "min(520px,94vw)", background: "var(--surface)", borderRadius: 16, boxShadow: "0 24px 64px rgba(15,23,42,.3)", zIndex: 96, padding: 24 }}>
         <div className="row between" style={{ marginBottom: 14 }}><div className="h3">{editIdx >= 0 ? "Edit ship-to address" : "New ship-to address"}</div><button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}><Icon name="x" size={16} /></button></div>
         <div className="col gap-3">
           <Field label="Client / brand" required><input className="input" value={f.client} onChange={e => setF(x => ({ ...x, client: e.target.value }))} placeholder="e.g. Plum" /></Field>
           <Field label="Contact person"><input className="input" value={f.contact} onChange={e => setF(x => ({ ...x, contact: e.target.value }))} placeholder="e.g. Ms. Dolly Suri" /></Field>
+          <Field label="Label (optional)"><input className="input" value={f.label} onChange={e => setF(x => ({ ...x, label: e.target.value }))} placeholder="e.g. Head office · Warehouse · R&D desk" /></Field>
           <Field label="Address (one line per row)"><textarea className="textarea" style={{ minHeight: 90 }} value={f.lines} onChange={e => setF(x => ({ ...x, lines: e.target.value }))} placeholder={"Company\nStreet, area\nCity 000000\nPH: ..."} /></Field>
           <Field label="Status"><select className="select" value={f.status} onChange={e => setF(x => ({ ...x, status: e.target.value }))}><option value="active">Active</option><option value="discarded">Discarded</option></select></Field>
           <div className="row gap-2"><button className="btn" disabled={!f.client.trim()} onClick={save}><Icon name="check" size={15} /> Save address</button><button className="btn btn-ghost btn-sm" onClick={() => setAdding(false)}>Cancel</button></div>
           <div className="body-sm" style={{ fontSize: 11 }}>The "From" address (Naturis lab) is added automatically.</div>
         </div>
       </div></>}
-    <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))" }}>
-      {list.map((s, i) => <div key={i} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", opacity: s.status === "discarded" ? .6 : 1 }}>
-        <div className="row between" style={{ padding: "9px 14px", background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)" }}>
-          <span style={{ fontWeight: 700, fontSize: 13.5, color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)" }}>{s.client}</span>
-          <span className="row gap-1" style={{ alignItems: "center" }}>
-            <span className="pill pill-sm" style={{ background: "var(--surface)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize" }}>{s.status}</span>
-            <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} title="Edit" onClick={() => startEdit(s)}><Icon name="edit" size={13} /></button>
-            {window.ConfirmBtn ? <window.ConfirmBtn className="btn btn-ghost btn-sm" style={{ padding: 4 }} confirmLabel="Delete?" onConfirm={() => del(s)}><Icon name="x" size={13} color="var(--coral-dark)" /></window.ConfirmBtn> : <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={() => del(s)}><Icon name="x" size={13} /></button>}
-          </span>
-        </div>
-        <div style={{ padding: "12px 14px" }}>
-          <div className="label" style={{ fontSize: 8 }}>To</div>
-          <div className="body-sm" style={{ fontSize: 12.5, fontWeight: 600 }}>{s.contact}</div>
-          {s.to.map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)", textDecoration: s.status === "discarded" ? "line-through" : "none" }}>{ln}</div>)}
-          <div className="label" style={{ fontSize: 8, marginTop: 8 }}>From</div>
-          {(DA.NATURIS_LAB_ADDR || []).map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 10.5, color: "var(--grey)" }}>{ln}</div>)}
-        </div>
-      </div>)}
-      {!list.length && <div className="body-sm">No clients match.</div>}
+    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
+      {accounts.map(client => { const addrs = groups[client]; const activeN = addrs.filter(a => a.status !== "discarded").length;
+        return <div key={client} className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="row between" style={{ padding: "11px 16px", background: "var(--grad-brand)", color: "#fff" }}>
+            <span className="row gap-2" style={{ alignItems: "center" }}><span style={{ fontWeight: 800, fontSize: 14 }}>{client}</span>
+              <span className="pill pill-sm" style={{ background: "rgba(255,255,255,.2)", color: "#fff", fontWeight: 700 }}>{addrs.length} address{addrs.length > 1 ? "es" : ""}</span></span>
+            <button className="btn btn-sm" style={{ background: "rgba(255,255,255,.18)", color: "#fff", border: "none" }} title={"Add another address for " + client} onClick={() => addFor(client)}><Icon name="plus" size={13} color="#fff" /> Add</button>
+          </div>
+          <div className="col">
+            {addrs.map((s, i) => <div key={i} style={{ padding: "12px 16px", borderTop: i ? "1px solid var(--border)" : "none", opacity: s.status === "discarded" ? .6 : 1 }}>
+              <div className="row between" style={{ alignItems: "flex-start", gap: 6 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="row gap-2" style={{ alignItems: "center", flexWrap: "wrap", marginBottom: 3 }}>
+                    {s.label && <span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)", fontWeight: 700 }}>{s.label}</span>}
+                    <span className="pill pill-sm" style={{ background: s.status === "discarded" ? "var(--coral-wash)" : "var(--approved-bg)", color: s.status === "discarded" ? "var(--coral-dark)" : "var(--approved-fg)", textTransform: "capitalize", fontWeight: 700 }}>{s.status}</span>
+                  </div>
+                  <div className="body-sm" style={{ fontSize: 12.5, fontWeight: 600 }}>{s.contact}</div>
+                  {s.to.map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)", textDecoration: s.status === "discarded" ? "line-through" : "none" }}>{ln}</div>)}
+                </div>
+                <span className="row gap-1" style={{ flexShrink: 0 }}>
+                  <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} title="Edit" onClick={() => startEdit(s)}><Icon name="edit" size={13} /></button>
+                  {window.ConfirmBtn ? <window.ConfirmBtn className="btn btn-ghost btn-sm" style={{ padding: 4 }} confirmLabel="Delete?" onConfirm={() => del(s)}><Icon name="x" size={13} color="var(--coral-dark)" /></window.ConfirmBtn> : <button className="btn btn-ghost btn-sm" style={{ padding: 4 }} onClick={() => del(s)}><Icon name="x" size={13} /></button>}
+                </span>
+              </div>
+            </div>)}
+          </div>
+          <div style={{ padding: "8px 16px 12px", borderTop: "1px solid var(--border)", background: "var(--page)" }}>
+            <div className="label" style={{ fontSize: 8 }}>From (always)</div>
+            {(DA.NATURIS_LAB_ADDR || []).map((ln, k) => <div key={k} className="body-sm" style={{ fontSize: 10.5, color: "var(--grey)" }}>{ln}</div>)}
+          </div>
+        </div>; })}
+      {!accounts.length && <div className="body-sm">No clients match.</div>}
     </div>
   </div>;
 }

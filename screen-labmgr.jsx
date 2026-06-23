@@ -35,14 +35,15 @@ function LM01_Dashboard({ nav }) {
   const reqs = DLM.REQUIREMENTS;
   const b = labBuckets(reqs);
   const escalations = reqs.filter(r => r.flags.some(f => !f.resolved) || DLM.slaStatus(r).level === "red" || r.status === "Declined" || (r.queries || []).some(q => !q.resolved));
+  const labFlags = reqs.flatMap(r => (r.flags || []).filter(f => !f.resolved && (/Lab/.test(f.owner || "") || f.raisedByRole === "Lab Technician")).map(f => ({ f, r })));
   const tiles = [
     ["To acknowledge", b.toAck.length, "LB-02", b.toAck.length > 0],
     ["In evaluation", b.inEval.length, "LB-02", false],
-    ["On the bench", b.onBench.length + b.accepted.length, "LM-02", false],
-    ["Awaiting dispatch", b.awaitingDispatch.length, "LM-02", false],
-    ["In stability", b.inStab.length, "LM-02", false],
-    ["Open queries", b.queries.length, "LM-02", b.queries.length > 0],
-    ["Declined", b.declined.length, "LM-02", b.declined.length > 0],
+    ["On the bench", b.onBench.length + b.accepted.length, "LB-03", false],
+    ["Awaiting dispatch", b.awaitingDispatch.length, "LB-03", false],
+    ["In stability", b.inStab.length, "LB-06", false],
+    ["Open queries", b.queries.length, "LB-03", b.queries.length > 0],
+    ["Declined", b.declined.length, "LB-03", b.declined.length > 0],
     ["Dispatched", b.sent.length, "LM-04", false],
   ];
   return <div className="col gap-5">
@@ -51,6 +52,17 @@ function LM01_Dashboard({ nav }) {
     <div className="grid grid-4 gap-3">
       {tiles.map(([l, v, to, warn]) => <Stat key={l} label={l} value={v} attention={warn} onClick={() => nav(to)} />)}
     </div>
+
+    {/* lab flags — raised by / owned by the lab, your response needed */}
+    {labFlags.length > 0 && <div className="card" style={{ border: "1px solid var(--coral)", padding: 0, overflow: "hidden" }}>
+      <div className="row between" style={{ padding: "12px 18px", background: "var(--coral-wash)", borderBottom: "1px solid var(--border)" }}>
+        <span className="row gap-2"><Icon name="flag" size={15} color="var(--coral-dark)" /><span style={{ fontWeight: 700, fontSize: 14, color: "var(--coral-dark)" }}>Lab flags — your response needed</span></span>
+        <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--coral-dark)", fontWeight: 700 }}>{labFlags.length}</span>
+      </div>
+      <div className="col gap-3" style={{ padding: 16 }}>
+        {labFlags.map(({ f, r }) => <LMFlagRow key={(r.id || "") + (f.id || "")} f={f} r={r} nav={nav} />)}
+      </div>
+    </div>}
 
     {/* per-desk / per-tech load */}
     <div className="grid grid-4 gap-3">
@@ -69,7 +81,7 @@ function LM01_Dashboard({ nav }) {
     </div>
 
     <div className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
-      <div className="card"><div className="row between" style={{ marginBottom: 12 }}><div className="h3">Pipeline by stage</div><button className="btn btn-sm" onClick={() => nav("LM-02")}><Icon name="calendar" size={14} /> Open lab meeting</button></div>
+      <div className="card"><div className="row between" style={{ marginBottom: 12 }}><div className="h3">Pipeline by stage</div><button className="btn btn-sm" onClick={() => nav("LB-03")}><Icon name="work" size={14} /> Open live tracking</button></div>
         <div className="col gap-2">{[["To acknowledge", b.toAck.length], ["In evaluation", b.inEval.length], ["Accepted", b.accepted.length], ["On bench", b.onBench.length], ["Awaiting dispatch", b.awaitingDispatch.length], ["In stability", b.inStab.length]].map(([lb, v]) => { const max = Math.max(b.toAck.length, b.inEval.length, b.accepted.length, b.onBench.length, b.awaitingDispatch.length, b.inStab.length, 1);
           return <div key={lb} className="row gap-2" style={{ alignItems: "center" }}><span className="body-sm" style={{ width: 130, fontSize: 12 }}>{lb}</span><div className="bar-track" style={{ flex: 1, height: 12 }}><div className="bar-fill" style={{ width: (v / max * 100) + "%" }} /></div><span className="mono" style={{ fontSize: 12, fontWeight: 700, width: 22, textAlign: "right" }}>{v}</span></div>; })}</div>
       </div>
@@ -167,7 +179,7 @@ function LM02_Oversight({ nav }) {
           <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>{["Req ID", "Brand", "Product", "Type", "Chemist", "Stage bucket", "Status", "Live stage", "SLA", ""].map(h => <th key={h} style={{ background: "var(--brand)", color: "#fff", fontSize: 9, fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", padding: "9px 12px", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead>
           <tbody>
             {rows.map(r => <tr key={r.id} className="clickable" onClick={() => nav("LB-03", { reqId: r.id })} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
-              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <Icon name="star" size={12} color="#D97706" />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
+              <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}><span className="row gap-1" style={{ alignItems: "center" }}>{r.vvip && <VVIPStar />}<span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: "var(--brand-mid)" }}>{r.id}</span></span></td>
               <td style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap" }}>{r.brand}</td>
               <td style={{ padding: "8px 12px", fontSize: 12.5, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</td>
               <td style={{ padding: "8px 12px" }}><ProjectTypePill type={r.projectType} /></td>
@@ -307,8 +319,15 @@ function LM05_Planning({ nav }) {
   const OPS = window.NaturisData.STATION_OPERATORS;
   const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17]; // each row = a one-hour slot, 09:00 → 18:00
   const hLabel = h => String(h).padStart(2, "0") + ":00";
-  // upcoming working days (Mon–Fri), like a calendar week strip
-  const days = (function () { var arr = [], dt = new Date(), n = 0; while (n < 6) { var d = dt.getDay(); if (d !== 0 && d !== 6) { arr.push(new Date(dt)); n++; } dt.setDate(dt.getDate() + 1); } return arr; })();
+  // upcoming working days (Mon–Fri) for ~1 month, scrollable calendar strip
+  const days = (function () { var arr = [], dt = new Date(), n = 0; while (n < 22) { var d = dt.getDay(); if (d !== 0 && d !== 6) { arr.push(new Date(dt)); n++; } dt.setDate(dt.getDate() + 1); } return arr; })();
+  // when will this query's materials be ready? → planner schedules after that
+  const materialReady = r => { const e = r.evaluation || {}; const needed = [...(e.rmList || []), ...(e.pmList || [])].filter(x => x.needed);
+    if (!needed.length) return { label: "No procurement", ready: true };
+    if (needed.every(x => x.received)) return { label: "Materials ready", ready: true };
+    const etas = needed.map(x => x.eta).filter(Boolean).sort();
+    if (etas.length) { const m = etas[etas.length - 1]; return { label: "Materials by " + m.slice(8) + "/" + m.slice(5, 7), ready: false, date: m }; }
+    return { label: "Awaiting material dates", ready: false }; };
   const [dayIdx, setDayIdx] = useState(0);
   const day = days[dayIdx];
   const dayKey = day.toISOString().slice(0, 10);
@@ -367,13 +386,17 @@ function LM05_Planning({ nav }) {
       <Stat label="Hours booked · this day" value={hoursBookedToday} sub={fmtShort(day)} />
     </div>
 
-    {/* day strip — like a calendar week selector */}
-    <div className="row gap-2" style={{ alignItems: "center", flexWrap: "wrap" }}>
+    {/* day strip — ~1 month of working days, horizontally scrollable */}
+    <div className="row between" style={{ alignItems: "center", marginBottom: -4 }}>
+      <span className="label" style={{ fontSize: 9 }}>Booking calendar · next ~1 month (working days)</span>
+      <span className="body-sm" style={{ fontSize: 10.5, color: "var(--muted)" }}>scroll for more →</span>
+    </div>
+    <div className="row gap-2" style={{ alignItems: "center", overflowX: "auto", paddingBottom: 6 }}>
       {days.map((d, di) => { const on = di === dayIdx; const cnt = bookedAll.filter(r => r.evaluation.booking.dateKey === d.toISOString().slice(0, 10)).length;
-        return <button key={di} onClick={() => setDayIdx(di)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 12, padding: "8px 14px", minWidth: 96, textAlign: "center", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
-          <div style={{ fontSize: 10.5, fontWeight: 600, opacity: on ? .85 : .6 }}>{di === 0 ? "TODAY" : d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()}</div>
-          <div className="serif-num" style={{ fontSize: 19, lineHeight: 1.1 }}>{d.getDate()}</div>
-          <div style={{ fontSize: 9.5, fontWeight: 600, opacity: on ? .85 : .55 }}>{d.toLocaleDateString("en-GB", { month: "short" })}{cnt ? " · " + cnt : ""}</div>
+        return <button key={di} onClick={() => setDayIdx(di)} style={{ border: on ? "none" : "1px solid var(--border)", cursor: "pointer", borderRadius: 12, padding: "8px 12px", minWidth: 78, flexShrink: 0, textAlign: "center", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--ink)", boxShadow: on ? "0 6px 16px rgba(18,57,95,.22)" : "none" }}>
+          <div style={{ fontSize: 10, fontWeight: 600, opacity: on ? .85 : .6 }}>{di === 0 ? "TODAY" : d.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase()}</div>
+          <div className="serif-num" style={{ fontSize: 18, lineHeight: 1.1 }}>{d.getDate()}</div>
+          <div style={{ fontSize: 9, fontWeight: 600, opacity: on ? .85 : .55 }}>{d.toLocaleDateString("en-GB", { month: "short" })}{cnt ? " · " + cnt : ""}</div>
         </button>; })}
     </div>
 
@@ -391,9 +414,10 @@ function LM05_Planning({ nav }) {
               return <div key={r.id} onClick={() => setSel(on ? null : r.id)} style={{ padding: "9px 12px", borderLeft: on ? "3px solid var(--brand)" : "3px solid transparent", borderBottom: "1px solid var(--border)", cursor: "pointer", background: on ? "var(--brand-wash)" : "transparent" }}>
                 <div className="row between" style={{ alignItems: "flex-start", gap: 6 }}>
                   <div style={{ minWidth: 0 }}>
-                    <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>{r.vvip && <Icon name="star" size={11} color="#D97706" />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10 }}>{r.id.slice(-4)}</span></div>
+                    <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>{r.vvip && <VVIPStar size={12} />}<ProjectTypePill type={r.projectType} /><span className="mono" style={{ fontSize: 10 }}>{r.id.slice(-4)}</span></div>
                     <div style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, color: on ? "var(--brand)" : "var(--ink)", marginTop: 2 }}><span style={{ color: "var(--brand-mid)" }}>{r.brand}</span> · {r.title}</div>
                     <div className="body-sm" style={{ fontSize: 10.5 }}>{techOf(r)} · {r.status}</div>
+                    {(() => { const m = materialReady(r); return <span className="pill pill-sm" style={{ marginTop: 4, background: m.ready ? "var(--approved-bg)" : "var(--review-bg)", color: m.ready ? "var(--approved-fg)" : "var(--review-fg)", fontWeight: 700 }}><Icon name={m.ready ? "check" : "clock"} size={10} color={m.ready ? "var(--approved-fg)" : "var(--review-fg)"} /> {m.label}</span>; })()}
                   </div>
                   <button className="btn btn-sm btn-secondary" title="View the full requirement" style={{ flexShrink: 0, padding: "4px 7px" }} onClick={e => { e.stopPropagation(); setPopId(r.id); }}><Icon name="note" size={12} /></button>
                 </div>
@@ -438,7 +462,7 @@ function LM05_Planning({ nav }) {
                     if (ev) { const dur = ev.b.endHour - ev.b.startHour; const r = ev.r;
                       return <td key={si} rowSpan={dur} style={{ borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", padding: 4, verticalAlign: "top" }}>
                         <div style={{ height: dur * ROWH - 8, borderRadius: 9, padding: "6px 8px", background: r.vvip ? "linear-gradient(135deg,#F59E0B,#D97706)" : "var(--grad-brand)", color: "#fff", position: "relative", overflow: "hidden", cursor: "pointer" }} onClick={() => nav("LB-03", { reqId: r.id })}>
-                          <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{r.vvip && <Icon name="star" size={10} color="#fff" />}<span style={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1.15 }}>{r.title}</span></div>
+                          <div className="row gap-1" style={{ alignItems: "center", flexWrap: "wrap" }}>{r.vvip && <VVIPStar size={12} />}<span style={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1.15 }}>{r.title}</span></div>
                           <div style={{ fontSize: 10, opacity: .9, marginTop: 1 }}>{r.brand} · {r.tracker || "—"}</div>
                           <div className="mono" style={{ fontSize: 9.5, opacity: .85 }}>{hLabel(ev.b.startHour)}–{hLabel(ev.b.endHour)} · {dur}h{ev.b.batchSize ? " · " + ev.b.batchSize : ""}</div>
                           <button title="Release this slot" onClick={e => { e.stopPropagation(); release(r); }} style={{ position: "absolute", top: 4, right: 4, width: 18, height: 18, borderRadius: 5, border: "none", background: "rgba(255,255,255,.25)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="x" size={11} color="#fff" /></button>

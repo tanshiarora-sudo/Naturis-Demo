@@ -510,6 +510,21 @@ REQUIREMENTS.forEach(function (r) {
     }
     r.prePOComplete = false;
   }
+  // seed an RM-procurement state on some on-bench items — mirrors the lab's NCL "RM details" (qty + reminders + 'frag awaited')
+  if (["Formulation", "Trial"].indexOf(r.status) >= 0 && !(r.evaluation && r.evaluation.rmList)) {
+    var rseq = parseInt((r.id.match(/(\d{2,})$/) || ["0"])[0], 10) || 0;
+    if (rseq % 2 === 0) {
+      r.evaluation = Object.assign({ rm: "yes", pm: "no", slot: "", availability: [] }, r.evaluation, {
+        rm: "yes",
+        rmList: [
+          { name: "Coconut Oil Extract", needed: true, vendor: "Aarna Chem", qty: "250 g", received: true, receivedAt: "10 Jun", src: "formulation" },
+          { name: "Sunflower Wax", needed: true, vendor: "PackPro Industries", qty: "250 g", received: true, receivedAt: "10 Jun", src: "formulation" },
+          { name: "Fragrance — " + (r.title.split(" ")[0] || "Floral"), needed: true, vendor: "Givaudan", qty: "50 ml", received: false, src: "brief" },
+        ],
+        rmProcurement: { raisedTo: "Vikram (Procurement)", raisedAt: "6 Jun", reminders: ["6 Jun", "8 Jun"] },
+      });
+    }
+  }
   (r.queries || []).forEach(function (q) { if (q.by === "Sumit Choudhary" || q.by === "Tariq Khan") q.by = t; });
   (r.flags || []).forEach(function (f) { if (f.raisedByRole === "Lab Technician") f.raisedBy = t; if (f.resolvedBy === "Sumit Choudhary") f.resolvedBy = t; });
   (r.ncls || []).forEach(function (n) { if (n.by === "Sumit Choudhary" || n.by === "Tariq Khan") n.by = t; });
@@ -743,6 +758,10 @@ window.NaturisStore = {
   // ---- evaluation ----
   startEvaluation(id, by) { const r = this.get(id); if (r) { r.status = "In evaluation"; r.evaluation = r.evaluation || { rm: "unset", pm: "unset", slot: "", availability: [] }; this.log(id, { kind: "status", icon: "work", stage: "Evaluation", actor: by, role: "Lab", at: "just now", detail: "Lab evaluation started (RM / PM / slot / availability).", current: true }); } _bump(); },
   setEvaluation(id, patch) { const r = this.get(id); if (r) { r.evaluation = Object.assign({ rm: "unset", pm: "unset", slot: "", availability: [] }, r.evaluation, patch); } _bump(); },
+  // ---- RM procurement tracker (mirrors the lab's NCL "RM details" flow) ----
+  raiseRMRequest(id, to, by) { const r = this.get(id); if (r) { r.evaluation = r.evaluation || {}; const d = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }); r.evaluation.rmProcurement = Object.assign({ reminders: [] }, r.evaluation.rmProcurement, { raisedTo: to, raisedAt: d }); this.log(id, { kind: "status", icon: "note", stage: "RM request raised", actor: by, role: "Lab", at: "just now", detail: "RM procurement request raised to " + to + "." }); this._notify(id, "queue", "info", id + " — RM request raised", "Raised to " + to + " for raw-material procurement.", "NR-04", ["labmgr", "planner"]); } _bump(); },
+  addRMReminder(id, by) { const r = this.get(id); if (r) { r.evaluation = r.evaluation || {}; const p = r.evaluation.rmProcurement = r.evaluation.rmProcurement || { reminders: [] }; const d = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }); p.reminders = (p.reminders || []).concat(d); this.log(id, { kind: "status", icon: "note", stage: "RM reminder sent", actor: by, role: "Lab", at: "just now", detail: "RM reminder mail sent (" + p.reminders.length + ") on " + d + "." }); } _bump(); },
+  setRMReceived(id, idx, val, by) { const r = this.get(id); const it = r && r.evaluation && (r.evaluation.rmList || [])[idx]; if (it) { it.received = val; it.receivedAt = val ? new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""; this.log(id, { kind: "status", icon: val ? "check" : "clock", stage: "RM " + (val ? "received" : "awaited"), actor: by, role: "Lab", at: "just now", detail: it.name + (val ? " received" + (it.qty ? " (" + it.qty + ")" : "") + "." : " marked awaited.") }); } _bump(); },
   // ---- decision ----
   accept(id, date, by) { const r = this.get(id); if (r) { r.status = "Accepted — date committed"; r.committedDate = date; r.owner = "Lab"; this.log(id, { kind: "approval", icon: "check", stage: "Accepted", actor: by, role: "Lab", at: "just now", detail: `Accepted — tentative sample date ${date}.`, current: true }); this._notify(id, "queue", "info", id + " accepted — book a station slot", "Lab committed " + date + ". Schedule it on the planning desk.", "NR-04", ["planner"]); this._notify(id, "dispatch", "info", "Lab accepted " + id, "Tentative sample date " + date + ".", "NR-04", ["spoc"]); } _bump(); },
   decline(id, reason, by) { const r = this.get(id); if (r) { r.status = "Declined"; r.declineReason = reason; r.owner = "Sales SPOC"; this.log(id, { kind: "flag", icon: "alert", stage: "Declined", actor: by, role: "Lab", at: "just now", severity: "high", detail: "Declined — " + reason, current: true }); this._notify(id, "flag", "high", "Lab declined " + id, reason, "NR-05", ["spoc"]); } _bump(); },
@@ -790,12 +809,19 @@ window.NaturisData.STABILITY_RUNS = [
 ];
 window.NaturisData.NATURIS_LAB_ADDR = ["Naturis Cosmetic Pvt. Ltd. (Lab)", "Plot No-1, EPIP", "SIDCO Industrial complex Bari Brahmana", "Jammu, J&K-181133", "PH- 8899 008 965"];
 window.NaturisData.SHIP_ADDRESSES = [
-  { client: "Plum", contact: "Ms. Dolly Suri", to: ["Pureplay Skin Sciences", "B-1201, Shalimar Gallant, Mahanagar", "Lucknow 226006", "PH: 84477 30688"], status: "active" },
-  { client: "Pilgrim", contact: "Mr. Anurag Singh", to: ["Heavenly Secrets Pvt. Ltd.", "WeWork, Embassy TechVillage", "Bengaluru 560103", "PH: 98860 11221"], status: "active" },
-  { client: "Nykaa", contact: "Ms. Priya Nair", to: ["FSN E-Commerce Ventures", "104 Vinod Silicon Bldg, Andheri E", "Mumbai 400069", "PH: 90040 55667"], status: "active" },
-  { client: "Asaya", contact: "Ms. Akaljyot Kour", to: ["Asaya Care", "39, 2nd floor, The Lilac 2, Sector 49", "Gurugram, Haryana 122001", "PH: 91725 90285"], status: "active" },
-  { client: "Nua", contact: "Ms. Ravneet Sethi", to: ["Nirvana Being Pvt. Ltd.", "Vasant Kunj", "New Delhi 110070", "PH: 99100 33445"], status: "active" },
-  { client: "Mamaearth", contact: "Jigna Patel", to: ["Honasa Consumer Ltd.", "Capital Cyberscape, Sector 59", "Gurugram 122102", "PH: 89281 41879"], status: "active" },
+  { client: "Plum", contact: "Ms. Dolly Suri", label: "Head office", to: ["Pureplay Skin Sciences", "B-1201, Shalimar Gallant, Mahanagar", "Lucknow 226006", "PH: 84477 30688"], status: "active" },
+  { client: "Plum", contact: "Mr. Rohan Kapoor", label: "Mumbai warehouse", to: ["Pureplay Skin Sciences — WH", "Unit 7, Bhiwandi Logistics Park", "Bhiwandi, Thane 421302", "PH: 90043 22118"], status: "active" },
+  { client: "Plum", contact: "Ms. Sneha Iyer", label: "R&D / NPD desk", to: ["Pureplay Skin Sciences — R&D", "Plot 14, MIDC Andheri E", "Mumbai 400093", "PH: 90043 99820"], status: "active" },
+  { client: "Pilgrim", contact: "Mr. Anurag Singh", label: "Head office", to: ["Heavenly Secrets Pvt. Ltd.", "WeWork, Embassy TechVillage", "Bengaluru 560103", "PH: 98860 11221"], status: "active" },
+  { client: "Nykaa", contact: "Ms. Priya Nair", label: "Corporate office", to: ["FSN E-Commerce Ventures", "104 Vinod Silicon Bldg, Andheri E", "Mumbai 400069", "PH: 90040 55667"], status: "active" },
+  { client: "Nykaa", contact: "Mr. Kabir Sethi", label: "Bengaluru DC", to: ["FSN E-Commerce Ventures — DC", "Soukya Road, Hoskote", "Bengaluru 560067", "PH: 90040 77231"], status: "active" },
+  { client: "Asaya", contact: "Ms. Akaljyot Kour", label: "Head office", to: ["Asaya Care", "39, 2nd floor, The Lilac 2, Sector 49", "Gurugram, Haryana 122001", "PH: 91725 90285"], status: "active" },
+  { client: "Asaya", contact: "Mr. Veer Pratap", label: "Warehouse", to: ["Asaya Care — WH", "Khasra 102, Kapashera", "New Delhi 110037", "PH: 91725 11902"], status: "active" },
+  { client: "Nua", contact: "Ms. Ravneet Sethi", label: "Head office", to: ["Nirvana Being Pvt. Ltd.", "Plot 5, Vasant Kunj Institutional Area", "New Delhi 110070", "PH: 99100 33445"], status: "active" },
+  { client: "Nua", contact: "Mr. Ishaan Roy", label: "Mumbai office", to: ["Nirvana Being Pvt. Ltd. — West", "Lotus Corporate Park, Goregaon E", "Mumbai 400063", "PH: 99100 78214"], status: "active" },
+  { client: "Nua", contact: "Ms. Tara Menon", label: "Fulfilment centre", to: ["Nirvana Being — FC", "Khandsa Industrial Area", "Gurugram 122001", "PH: 99100 55301"], status: "active" },
+  { client: "Mamaearth", contact: "Jigna Patel", label: "Corporate office", to: ["Honasa Consumer Ltd.", "Capital Cyberscape, Sector 59", "Gurugram 122102", "PH: 89281 41879"], status: "active" },
+  { client: "Mamaearth", contact: "Mr. Dev Anand", label: "Bhiwandi DC", to: ["Honasa Consumer Ltd. — DC", "Mankoli Naka, Bhiwandi", "Thane 421302", "PH: 89281 67740"], status: "active" },
   { client: "MyGlamm", contact: "Sanghvi Beauty & Technologies", to: ["The Good Glamm Group", "Phoenix Paragon Plaza, Kurla", "Mumbai 400070", "PH: 89281 41879"], status: "active" },
   { client: "Belora Cosmetic", contact: "Ms. Ainara", to: ["Belora Cosmetic", "890P, Sector 43, Opp. Galaxy Apts", "Gurugram 122001", "PH: 91725 90285"], status: "active" },
   { client: "TNW — The Natural Wash", contact: "Asha", to: ["A-92 First Floor, Wazirpur", "Ashok Vihar", "Delhi 110052", "PH: 93193 95404"], status: "discarded" },

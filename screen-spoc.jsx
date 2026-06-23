@@ -237,7 +237,7 @@ function SP02_Intake({ nav, role }) {
   const SectionCard = IntakeSection;
   const [clientKind, setClientKind] = useState("existing");
   const [ruleOpen, setRuleOpen] = useState(false);
-  const [addrChoice, setAddrChoice] = useState("custom"); // "custom" or a saved-address index
+  const [addrChoice, setAddrChoice] = useState(""); // "" = pick from saved, "custom" = new address, or a saved-address index
   const [form, setForm] = useState(freshIntakeForm);
   const [flagManager, setFlagManager] = useState(false);
   const [submittedId, setSubmittedId] = useState(null);
@@ -540,21 +540,21 @@ function SP02_Intake({ nav, role }) {
             <Field label="Label description" required full><input className="input" value={form.labelDesc} onChange={e => set("labelDesc", e.target.value)} id="f-label" placeholder="What goes on the label" /></Field>
             {(() => {
               const brandAddrs = (D.SHIP_ADDRESSES || []).filter(a => a.client === form.brand && a.status !== "discarded");
-              const pickSaved = (a, i) => { setAddrChoice(String(i)); setForm(f => ({ ...f, shipping: a.to.join("\n"), shipName: a.contact, shipPhone: ((a.to.find(l => /PH:/i.test(l)) || "").replace(/.*PH:\s*/i, "")) })); };
+              const pickSaved = (a) => { const i = brandAddrs.indexOf(a); setAddrChoice(String(i)); setForm(f => ({ ...f, shipping: a.to.join("\n"), shipName: a.contact, shipPhone: ((a.to.find(l => /PH:/i.test(l)) || "").replace(/.*PH:\s*/i, "")) })); };
+              const sel = brandAddrs[parseInt(addrChoice, 10)];
               return <>
                 <Field label="Delivery address" required full>
                   {brandAddrs.length > 0 ? <div className="col gap-2">
-                    <div className="body-sm" style={{ fontSize: 11.5 }}><b>{form.brand}</b> has {brandAddrs.length} saved address{brandAddrs.length > 1 ? "es" : ""} — pick where this sample ships, or add a custom one.</div>
-                    <div className="row gap-2 wrap">
-                      {brandAddrs.map((a, i) => { const on = addrChoice === String(i);
-                        return <div key={i} onClick={() => pickSaved(a, i)} style={{ flex: "1 1 230px", minWidth: 230, border: on ? "2px solid var(--brand)" : "1px solid var(--border)", background: on ? "var(--brand-wash)" : "var(--surface)", borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
-                          <div className="row gap-2" style={{ alignItems: "center" }}><Icon name={on ? "check" : "dispatch"} size={13} color={on ? "var(--brand)" : "var(--muted)"} /><span style={{ fontWeight: 700, fontSize: 12.5 }}>{a.contact}</span></div>
-                          <div className="body-sm" style={{ fontSize: 11, marginTop: 2 }}>{a.to.join(", ")}</div>
-                        </div>; })}
-                      <div onClick={() => { setAddrChoice("custom"); setForm(f => ({ ...f, shipping: "", shipName: "", shipPhone: "" })); }} style={{ flex: "1 1 230px", minWidth: 230, border: addrChoice === "custom" ? "2px dashed var(--brand)" : "1px dashed var(--border-strong)", background: addrChoice === "custom" ? "var(--brand-wash)" : "var(--surface)", borderRadius: 10, padding: "10px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                        <Icon name="plus" size={14} color="var(--brand)" /><span style={{ fontWeight: 600, fontSize: 12.5 }}>Add a custom address</span></div>
-                    </div>
-                  </div> : <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>New client — the address you enter will be saved to the address book under <b>{form.brand || "this brand"}</b>.</div>}
+                    <div className="body-sm" style={{ fontSize: 11.5 }}><b>{form.brand}</b> has {brandAddrs.length} saved address{brandAddrs.length > 1 ? "es" : ""} — pick one, or add a new address.</div>
+                    <select className="select" value={addrChoice} onChange={e => { const v = e.target.value; if (v === "custom") { setAddrChoice("custom"); setForm(f => ({ ...f, shipping: "", shipName: "", shipPhone: "" })); } else { pickSaved(brandAddrs[parseInt(v, 10)]); } }}>
+                      <option value="" disabled>Select a saved address…</option>
+                      {brandAddrs.map((a, i) => <option key={i} value={String(i)}>{(a.label ? a.label + " — " : "") + a.contact + " · " + (a.to[1] || a.to[0])}</option>)}
+                      <option value="custom">➕ Add a new address…</option>
+                    </select>
+                    {sel && addrChoice !== "custom" && <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--brand-wash)", border: "1px solid var(--brand-tint)" }}>
+                      <div className="row gap-2" style={{ alignItems: "center", marginBottom: 2 }}>{sel.label && <span className="pill pill-sm" style={{ background: "var(--surface)", color: "var(--brand-mid)", fontWeight: 700 }}>{sel.label}</span>}<span style={{ fontWeight: 700, fontSize: 12.5 }}>{sel.contact}</span></div>
+                      <div className="body-sm" style={{ fontSize: 11.5 }}>{sel.to.join(", ")}</div></div>}
+                  </div> : <div className="body-sm" style={{ fontSize: 11.5, color: "var(--muted)" }}>New client — the address you enter is saved to the address book under <b>{form.brand || "this brand"}</b>.</div>}
                 </Field>
                 {(addrChoice === "custom" || brandAddrs.length === 0) && <>
                   <Field label="Ship to — contact name"><input className="input" value={form.shipName} onChange={e => set("shipName", e.target.value)} placeholder="Who receives the sample" /></Field>
@@ -1276,7 +1276,7 @@ function SP07_Pipeline({ nav }) {
         <div className="row between" style={{ padding: "14px 18px" }}>
           <div className="row gap-3">
             <div style={{ width: 34, height: 34, borderRadius: 9, background: "var(--brand-wash)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="brand" size={17} color="var(--brand)" /></div>
-            <div><div className="h3">{brand}{anyVvip && <span style={{ marginLeft: 6 }}><Icon name="star" size={12} color="#D97706" /></span>}</div>
+            <div><div className="h3">{brand}{anyVvip && <span style={{ marginLeft: 6 }}><VVIPStar /></span>}</div>
               <div className="body-sm" style={{ fontSize: 12 }}>{items.length} live requirement{items.length !== 1 ? "s" : ""}</div></div>
           </div>
         </div>
