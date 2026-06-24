@@ -1057,6 +1057,62 @@ window.NaturisStore.setCI = function (accId, patch, by) {
   Object.assign(d, patch); _bump();
 };
 
+/* ---------- TG benchmarking (competitor SKU tracking) — client template "Market Research Docket GGN001" ----------
+   Per-client competitor products tracked across the five marketplaces. One commercials set per SKU;
+   "listed on" sites are source chips + a filter. MRP/ml and SP/ml are derived (price ÷ fill qty). */
+window.NaturisData.TG_DOCKET = "GGN001";
+window.NaturisData.TG_SITES = ["Amazon", "Flipkart", "Nykaa", "Tira", "Ajio"];
+var TG_SEED = {
+  "ACC-01": [ // Nykaa — luxury skin/serum/sun
+    { brand: "Forest Essentials", category: "Face", type: "Face Moisturizer", variant: "Hydration", mrp: 1875, sp: 1875, qty: 50, packaging: "Jar", ings: ["Aloe Vera Juice", "Jasmine", "Kewda Water"], sites: ["Nykaa", "Amazon"] },
+    { brand: "Minimalist", category: "Skin Care", type: "Serum", variant: "Vitamin C 10%", mrp: 599, sp: 499, qty: 30, packaging: "Airless pump", ings: ["Vitamin C", "Ferulic Acid", "Vitamin E"], sites: ["Amazon", "Flipkart", "Nykaa"] },
+    { brand: "Dot & Key", category: "Sun Care", type: "Sunscreen", variant: "SPF 50+ Watermelon", mrp: 595, sp: 476, qty: 50, packaging: "Tube", ings: ["Niacinamide", "Hyaluronic Acid", "Zinc Oxide"], sites: ["Nykaa", "Tira"] },
+  ],
+  "ACC-02": [ // Plum — mass-premium hair/cleanser/cream
+    { brand: "Nat Habit", category: "Hair", type: "Conditioner", variant: "Damage Repair", mrp: 359, sp: 304, qty: 150, packaging: "Tube", ings: ["Hibiscus", "Methi", "Hung Curd"], sites: ["Amazon", "Flipkart"] },
+    { brand: "mCaffeine", category: "Skin Care", type: "Face Wash", variant: "Coffee", mrp: 349, sp: 279, qty: 100, packaging: "Tube", ings: ["Caffeine", "Pro-Vitamin B5", "White Water Lily"], sites: ["Amazon", "Nykaa"] },
+    { brand: "The Derma Co", category: "Skin Care", type: "Moisturizer", variant: "Oil-Free", mrp: 449, sp: 359, qty: 50, packaging: "Jar", ings: ["Hyaluronic Acid", "Niacinamide", "Vitamin E"], sites: ["Amazon", "Flipkart", "Tira"] },
+  ],
+  "ACC-03": [ // Pilgrim — premium serum/lip
+    { brand: "Minimalist", category: "Skin Care", type: "Serum", variant: "Niacinamide 10%", mrp: 549, sp: 466, qty: 30, packaging: "Airless pump", ings: ["Niacinamide", "Zinc PCA", "Hyaluronic Acid"], sites: ["Amazon", "Nykaa"] },
+    { brand: "Sugar Cosmetics", category: "Colour", type: "Lipstick", variant: "Matte Bullet", mrp: 599, sp: 599, qty: 5, packaging: "Bullet", ings: ["Vitamin E", "Shea Butter", "Jojoba Oil"], sites: ["Nykaa", "Tira", "Ajio"] },
+  ],
+  "ACC-04": [ // Asaya — mass cleanser/cream
+    { brand: "Mamaearth", category: "Skin Care", type: "Face Wash", variant: "Ubtan", mrp: 249, sp: 224, qty: 100, packaging: "Tube", ings: ["Turmeric", "Saffron", "Walnut Beads"], sites: ["Amazon", "Flipkart"] },
+    { brand: "WOW Skin Science", category: "Skin Care", type: "Day Cream", variant: "Vitamin C", mrp: 399, sp: 319, qty: 50, packaging: "Jar", ings: ["Vitamin C", "Hyaluronic Acid", "Aloe Vera"], sites: ["Amazon"] },
+  ],
+  "ACC-05": [ // Nua — Gulf luxury serum/cream/story-ingredient
+    { brand: "Forest Essentials", category: "Face", type: "Face Moisturizer", variant: "Hydration", mrp: 1875, sp: 1875, qty: 50, packaging: "Jar", ings: ["Aloe Vera Juice", "Jasmine", "Kewda Water"], sites: ["Nykaa", "Amazon"] },
+    { brand: "Kama Ayurveda", category: "Skin Care", type: "Serum", variant: "Kumkumadi", mrp: 2495, sp: 2495, qty: 30, packaging: "Glass dropper", ings: ["Saffron", "Sandalwood", "Goat Milk"], sites: ["Nykaa", "Tira"] },
+  ],
+};
+/* ---------- Stakeholder map (client template: decision power / relationship / influence + pain points + LinkedIn) ---------- */
+var SM_SEED = {
+  "ACC-01": [
+    { name: "Camille Roche", title: "Head of Product", dept: "Product", power: "High", relationship: "Champion", influence: "High", engagement: "3-4 times a week", pref: "Calls + Email", painPoints: "Needs EU-compliant claims turned around fast", linkedin: "linkedin.com/in/camille-roche" },
+    { name: "Léa Dubois", title: "R&D Lead", dept: "R&D", power: "Medium", relationship: "Neutral", influence: "Medium", engagement: "Weekly", pref: "Formal email", painPoints: "Cautious on novel actives & stability data", linkedin: "linkedin.com/in/lea-dubois" },
+    { name: "Rohan Mehta", title: "Sourcing Manager", dept: "Procurement", power: "Medium", relationship: "Champion", influence: "Medium", engagement: "As needed", pref: "Email + Chat", painPoints: "Tight PM cost targets", linkedin: "Not on LinkedIn" },
+  ],
+  "ACC-02": [
+    { name: "Karthik Iyer", title: "Founder", dept: "Leadership", power: "High", relationship: "Champion", influence: "High", engagement: "Same-day on WhatsApp", pref: "WhatsApp + email", painPoints: "Very price-sensitive on packaging cost", linkedin: "linkedin.com/in/karthik-iyer" },
+    { name: "Anjali Verma", title: "Category Lead — Skin", dept: "Category", power: "Medium", relationship: "Neutral", influence: "Medium", engagement: "Weekly", pref: "Email", painPoints: "Wants faster iteration cycles", linkedin: "linkedin.com/in/anjali-verma" },
+  ],
+  "ACC-03": [
+    { name: "Megan Wallace", title: "Brand Director", dept: "Brand", power: "High", relationship: "Neutral", influence: "High", engagement: "2-3 day turnarounds", pref: "Email + monthly reviews", painPoints: "Marketing-led claims need feasibility sign-off", linkedin: "linkedin.com/in/megan-wallace" },
+    { name: "Dev Sharma", title: "Procurement Manager", dept: "Procurement", power: "Medium", relationship: "Champion", influence: "Medium", engagement: "As needed", pref: "Calls", painPoints: "Lead-time predictability", linkedin: "linkedin.com/in/dev-sharma" },
+  ],
+  "ACC-04": [
+    { name: "Sahil Gupta", title: "Category Manager", dept: "Category", power: "High", relationship: "Detractor", influence: "High", engagement: "Slow — chase after 5 days", pref: "Email; calls for escalations", painPoints: "Burned by past delays; budgets locked before briefs", linkedin: "linkedin.com/in/sahil-gupta" },
+    { name: "Priya Nair", title: "Founder", dept: "Leadership", power: "High", relationship: "Neutral", influence: "High", engagement: "As needed", pref: "Formal email", painPoints: "Cost vs quality scrutiny on every SKU", linkedin: "Not on LinkedIn" },
+  ],
+  "ACC-05": [
+    { name: "Fatima Al-Rashid", title: "CEO", dept: "Leadership", power: "High", relationship: "Champion", influence: "High", engagement: "Immediate via founder office", pref: "In-person + WhatsApp", painPoints: "Expects white-glove TAT; story ingredients non-negotiable", linkedin: "linkedin.com/in/fatima-al-rashid" },
+    { name: "Omar Khalid", title: "Head of Procurement", dept: "Procurement", power: "High", relationship: "Champion", influence: "Medium", engagement: "Weekly", pref: "Email + calls", painPoints: "Customs & gifting-season lead-times", linkedin: "linkedin.com/in/omar-khalid" },
+  ],
+};
+Object.keys(TG_SEED).forEach(function (k) { var d = window.NaturisData.CI_DATA[k]; if (d && !d.benchmarks) d.benchmarks = TG_SEED[k]; });
+Object.keys(SM_SEED).forEach(function (k) { var d = window.NaturisData.CI_DATA[k]; if (d && !d.stakeholders) d.stakeholders = SM_SEED[k]; });
+
 /* React hook: re-render on any store change */
 window.useStore = function useStore() {
   const [, set] = React.useState(0);

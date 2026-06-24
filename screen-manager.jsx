@@ -587,6 +587,79 @@ function FitScorePanel({ accId, isMgmt }) {
     </div>}
   </div>;
 }
+/* TG benchmarking — competitor SKU tracking per client (template "Market Research Docket") */
+function TGBenchmark({ accId, acc, isMgmt }) {
+  const [site, setSite] = useState("All");
+  const [edit, setEdit] = useState(false);
+  const ci = DM.CI_DATA[accId] || {};
+  const bm = ci.benchmarks || [];
+  const SITES = DM.TG_SITES || [];
+  const save = list => window.NaturisStore.setCI(accId, { benchmarks: list }, "Rahul Tandon");
+  const setRow = (i, patch) => save(bm.map((x, xi) => xi === i ? { ...x, ...patch } : x));
+  const toggleSite = (i, s) => { const cur = bm[i].sites || []; setRow(i, { sites: cur.includes(s) ? cur.filter(x => x !== s) : cur.concat([s]) }); };
+  const perMl = (v, q) => q > 0 ? (v / q).toFixed(2) : "—";
+  const rows = site === "All" ? bm : bm.filter(b => (b.sites || []).includes(site));
+  const addRow = () => save(bm.concat([{ brand: "New competitor", category: "Skin Care", type: "", variant: "", mrp: 0, sp: 0, qty: 0, packaging: "", ings: ["", "", ""], sites: [] }]));
+  const SiteChips = ({ list }) => <span className="row gap-1 wrap">{(list || []).map(s => <span key={s} className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)", fontSize: 10 }}>{s}</span>)}{(!list || !list.length) && <span className="body-sm" style={{ fontSize: 11, color: "var(--muted)" }}>—</span>}</span>;
+  return <div className="col gap-4">
+    <div className="card">
+      <div className="row between" style={{ flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+        <div><div className="h3">TG benchmarking · {acc.name}</div>
+          <div className="body-sm" style={{ fontSize: 12 }}>Competitor SKUs tracked across {SITES.join(", ")} · Market Research Docket {DM.TG_DOCKET}</div></div>
+        {isMgmt && <button className={"btn btn-sm " + (edit ? "" : "btn-ghost")} onClick={() => setEdit(e => !e)}><Icon name={edit ? "check" : "edit"} size={13} /> {edit ? "Done" : "Edit"}</button>}
+      </div>
+      <div className="row gap-2 wrap" style={{ marginBottom: 12 }}>
+        {["All", ...SITES].map(s => { const on = site === s; return <button key={s} onClick={() => setSite(s)}
+          style={{ padding: "5px 12px", borderRadius: 999, cursor: "pointer", fontSize: 12, fontWeight: on ? 700 : 500, border: on ? "1px solid var(--brand)" : "1px solid var(--border)", background: on ? "var(--brand)" : "var(--surface)", color: on ? "#fff" : "var(--muted)" }}>{s}</button>; })}
+        <span className="body-sm" style={{ fontSize: 12, alignSelf: "center", color: "var(--muted)" }}>{rows.length} SKU{rows.length === 1 ? "" : "s"}</span>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        {edit ? <div className="col gap-2">
+          {bm.map((b, i) => <div key={i} style={{ padding: 10, borderRadius: 10, background: "var(--page)" }}>
+            <div className="grid grid-4 gap-2">
+              {[["brand", "Brand"], ["category", "Category"], ["type", "Type"], ["variant", "Variant"], ["packaging", "Packaging"]].map(([k, lbl]) =>
+                <div key={k}><div className="label" style={{ fontSize: 8 }}>{lbl}</div><input className="input" style={{ height: 30, fontSize: 12 }} value={b[k] || ""} onChange={e => setRow(i, { [k]: e.target.value })} /></div>)}
+              {[["mrp", "MRP ₹"], ["sp", "SP ₹"], ["qty", "Qty (ml/g)"]].map(([k, lbl]) =>
+                <div key={k}><div className="label" style={{ fontSize: 8 }}>{lbl}</div><input className="input" style={{ height: 30, fontSize: 12 }} value={b[k] || 0} onChange={e => setRow(i, { [k]: Number(e.target.value) || 0 })} /></div>)}
+            </div>
+            <div className="grid grid-4 gap-2" style={{ marginTop: 6 }}>
+              {[0, 1, 2].map(ix => <div key={ix}><div className="label" style={{ fontSize: 8 }}>Ingredient {ix + 1}</div><input className="input" style={{ height: 30, fontSize: 12 }} value={(b.ings || [])[ix] || ""} onChange={e => { const ings = [...(b.ings || ["", "", ""])]; ings[ix] = e.target.value; setRow(i, { ings }); }} /></div>)}
+              <div><div className="label" style={{ fontSize: 8 }}>MRP/ml · SP/ml</div><div className="body-sm" style={{ fontSize: 12, paddingTop: 6 }}>₹{perMl(b.mrp, b.qty)} · ₹{perMl(b.sp, b.qty)}</div></div>
+            </div>
+            <div className="row between" style={{ marginTop: 6, alignItems: "center" }}>
+              <div className="row gap-1 wrap"><span className="label" style={{ fontSize: 8, alignSelf: "center" }}>Listed on</span>{SITES.map(s => { const on = (b.sites || []).includes(s); return <button key={s} onClick={() => toggleSite(i, s)} style={{ padding: "3px 9px", borderRadius: 999, cursor: "pointer", fontSize: 10, border: on ? "1px solid var(--brand)" : "1px solid var(--border)", background: on ? "var(--brand-wash)" : "var(--surface)", color: on ? "var(--brand-mid)" : "var(--muted)", fontWeight: on ? 700 : 500 }}>{s}</button>; })}</div>
+              <button className="btn btn-ghost btn-sm" style={{ color: "var(--coral-dark)" }} onClick={() => save(bm.filter((_, xi) => xi !== i))}><Icon name="x" size={12} /> Remove</button>
+            </div>
+          </div>)}
+          <button className="btn btn-secondary btn-sm" style={{ alignSelf: "flex-start" }} onClick={addRow}><Icon name="plus" size={13} /> Add competitor SKU</button>
+        </div> : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 920 }}>
+          <thead><tr style={{ background: "var(--brand)", color: "#fff" }}>
+            {["#", "Brand", "Category · Type", "Variant", "MRP", "SP", "Qty", "MRP/ml", "SP/ml", "Packaging", "Label-claim ingredients", "Listed on"].map(h =>
+              <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 10.5, letterSpacing: ".04em", whiteSpace: "nowrap" }}>{h}</th>)}
+          </tr></thead>
+          <tbody>{rows.map((b, i) => <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+            <td style={{ padding: "8px 10px", color: "var(--muted)" }}>{i + 1}</td>
+            <td style={{ padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>{b.brand}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{b.category}{b.type ? " · " + b.type : ""}</td>
+            <td style={{ padding: "8px 10px" }}>{b.variant || "—"}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>₹{b.mrp}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>₹{b.sp}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{b.qty}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>₹{perMl(b.mrp, b.qty)}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>₹{perMl(b.sp, b.qty)}</td>
+            <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>{b.packaging || "—"}</td>
+            <td style={{ padding: "8px 10px" }}>{(b.ings || []).filter(Boolean).join(" · ") || "—"}</td>
+            <td style={{ padding: "8px 10px" }}><SiteChips list={b.sites} /></td>
+          </tr>)}
+          {!rows.length && <tr><td colSpan={12} style={{ padding: 16, textAlign: "center", color: "var(--muted)" }}>No competitor SKUs{site !== "All" ? " listed on " + site : ""} yet.</td></tr>}
+          </tbody>
+        </table>}
+      </div>
+      <div className="ai-suggest" style={{ marginTop: 12 }}><span className="ai-eyebrow">AI · pricing read</span><div className="body-sm" style={{ fontSize: 12, marginTop: 4 }}>Per-ml economics let SPOC and management benchmark {acc.name}'s target price band against the live competitor set before quoting.</div></div>
+    </div>
+  </div>;
+}
+
 function CI01_Intelligence({ role }) {
   window.useStore();
   const [accId, setAccId] = useState(DM.ACCOUNTS[0].id);
@@ -596,6 +669,7 @@ function CI01_Intelligence({ role }) {
   const ci = (DM.CI_DATA[accId] || {});
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(ci);
+  const [tab, setTab] = useState("intel");
   useEffect(() => { setDraft(DM.CI_DATA[accId] || {}); setEditing(false); }, [accId]);
   const personaChips = (editing ? draft.persona : ci.persona) || ["Premium-led", "Provenance-focused", "High LTV", "Claims-driven"];
   function saveCI() { window.NaturisStore.setCI(accId, { decisionStyle: draft.decisionStyle, responseSpeed: draft.responseSpeed, commPref: draft.commPref, notes: draft.notes, persona: draft.persona }, "Rahul Tandon"); setEditing(false); }
@@ -622,6 +696,12 @@ function CI01_Intelligence({ role }) {
       </div>
     </div>
 
+    <div className="row gap-1" style={{ borderBottom: "1px solid var(--border)" }}>
+      {[["intel", "Intelligence"], ["tg", "TG benchmarking"]].map(([k, lbl]) => <button key={k} onClick={() => setTab(k)}
+        style={{ background: "none", border: "none", borderBottom: tab === k ? "2px solid var(--brand)" : "2px solid transparent", cursor: "pointer", padding: "8px 14px", marginBottom: -1, fontSize: 13, fontWeight: tab === k ? 700 : 500, color: tab === k ? "var(--brand)" : "var(--muted)" }}>{lbl}</button>)}
+    </div>
+
+    {tab === "intel" && <React.Fragment>
     {isMgmt ? <FitScorePanel accId={accId} isMgmt={isMgmt} />
       : <CompatibilityNote severity="ok" title="Fit score is management-only">The 4-dimension client fit score is visible to Management profiles only.</CompatibilityNote>}
     <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
@@ -672,20 +752,36 @@ function CI01_Intelligence({ role }) {
     })()}
     <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
       <div className="card">
-        <div className="row between" style={{ marginBottom: 12 }}><div className="label">Stakeholder mapping · manually maintained</div>
-          {isMgmt && <button className="btn btn-ghost btn-sm" onClick={() => { const list = (ci.stakeholders || acc.decisionMakers.map(x => ({ name: x.name, title: x.title, dept: "—", power: "Influencer", influence: x.influence, relationship: "Good", engagement: "Monthly", pref: "Email" }))).concat([{ name: "New stakeholder", title: "Title", dept: "Dept", power: "Influencer", influence: 50, relationship: "New", engagement: "—", pref: "Email" }]); window.NaturisStore.setCI(accId, { stakeholders: list }, "Rahul Tandon"); }}><Icon name="plus" size={13} /> Add</button>}
+        <div className="row between" style={{ marginBottom: 12 }}><div className="label">Stakeholder map · manually maintained</div>
+          {isMgmt && <button className="btn btn-ghost btn-sm" onClick={() => { const list = (ci.stakeholders || []).concat([{ name: "New stakeholder", title: "Role", dept: "Department", power: "Medium", relationship: "Neutral", influence: "Medium", engagement: "As needed", pref: "Email", painPoints: "", linkedin: "" }]); window.NaturisStore.setCI(accId, { stakeholders: list }, "Rahul Tandon"); }}><Icon name="plus" size={13} /> Add</button>}
         </div>
         {(ci.stakeholders || []).length > 0 ? <div className="col gap-2">
-          {ci.stakeholders.map((sm2, si) => <div key={si} style={{ padding: 10, borderRadius: 10, background: "var(--page)" }}>
-            {isMgmt ? <div className="grid grid-4 gap-2">
-              {[["name", "Name"], ["title", "Designation"], ["dept", "Department"], ["power", "Decision power"], ["relationship", "Relationship"], ["engagement", "Engagement freq."], ["pref", "Comm preference"], ["influence", "Influence %"]].map(([k, lbl]) =>
-                <div key={k}><div className="label" style={{ fontSize: 8 }}>{lbl}</div>
-                  <input className="input" style={{ height: 30, fontSize: 12 }} value={sm2[k] != null ? sm2[k] : ""} onChange={e => { const list = ci.stakeholders.map((x, xi) => xi === si ? { ...x, [k]: e.target.value } : x); window.NaturisStore.setCI(accId, { stakeholders: list }, "Rahul Tandon"); }} /></div>)}
+          {ci.stakeholders.map((sm2, si) => { const setF = (k, v) => { const list = ci.stakeholders.map((x, xi) => xi === si ? { ...x, [k]: v } : x); window.NaturisStore.setCI(accId, { stakeholders: list }, "Rahul Tandon"); };
+            return <div key={si} style={{ padding: 10, borderRadius: 10, background: "var(--page)" }}>
+            {isMgmt ? <div className="col gap-2">
+              <div className="grid grid-4 gap-2">
+                {[["name", "Name", "text"], ["title", "Designation / role", "text"], ["dept", "Department", "text"], ["power", "Decision power", "lmh"], ["relationship", "Relationship w/ Naturis", "rel"], ["influence", "Influence on deal", "lmh"], ["engagement", "Engagement freq.", "text"], ["pref", "Comm preference", "text"]].map(([k, lbl, ty]) =>
+                  <div key={k}><div className="label" style={{ fontSize: 8 }}>{lbl}</div>
+                    {ty === "text" ? <input className="input" style={{ height: 30, fontSize: 12 }} value={sm2[k] != null ? sm2[k] : ""} onChange={e => setF(k, e.target.value)} />
+                      : <select className="input" style={{ height: 30, fontSize: 12 }} value={sm2[k] || ""} onChange={e => setF(k, e.target.value)}>{(ty === "rel" ? ["Champion", "Neutral", "Detractor"] : ["Low", "Medium", "High"]).map(o => <option key={o} value={o}>{o}</option>)}</select>}
+                  </div>)}
+              </div>
+              <div className="grid grid-2 gap-2">
+                <div><div className="label" style={{ fontSize: 8 }}>Pain points / priorities</div><input className="input" style={{ height: 30, fontSize: 12 }} value={sm2.painPoints || ""} onChange={e => setF("painPoints", e.target.value)} /></div>
+                <div><div className="label" style={{ fontSize: 8 }}>LinkedIn</div><input className="input" style={{ height: 30, fontSize: 12 }} value={sm2.linkedin || ""} onChange={e => setF("linkedin", e.target.value)} /></div>
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-end", color: "var(--coral-dark)" }} onClick={() => window.NaturisStore.setCI(accId, { stakeholders: ci.stakeholders.filter((_, xi) => xi !== si) }, "Rahul Tandon")}><Icon name="x" size={12} /> Remove</button>
             </div> : <div>
-              <div className="row between"><span style={{ fontWeight: 600, fontSize: 13 }}>{sm2.name} · {sm2.title}</span><span className="pill pill-sm" style={{ background: "var(--brand-wash)", color: "var(--brand-mid)" }}>{sm2.power}</span></div>
-              <div className="body-sm" style={{ fontSize: 11.5 }}>{sm2.dept} · {sm2.relationship} · {sm2.engagement} · prefers {sm2.pref}</div>
+              <div className="row between" style={{ alignItems: "flex-start" }}><span style={{ fontWeight: 600, fontSize: 13 }}>{sm2.name} · {sm2.title}</span></div>
+              <div className="row gap-2 wrap" style={{ margin: "5px 0" }}>
+                {[["Power", sm2.power], ["Naturis", sm2.relationship], ["Influence", sm2.influence]].map(([lbl, vv]) => { const good = /High|Champion/.test(vv), bad = /Detractor/.test(vv);
+                  return vv ? <span key={lbl} className="pill pill-sm" style={{ background: good ? "var(--approved-bg)" : bad ? "var(--coral-wash)" : "var(--review-bg)", color: good ? "var(--approved-fg)" : bad ? "var(--coral-dark)" : "var(--review-fg)" }}>{lbl}: {vv}</span> : null; })}
+              </div>
+              <div className="body-sm" style={{ fontSize: 11.5 }}>{sm2.dept} · {sm2.engagement} · prefers {sm2.pref}</div>
+              {sm2.painPoints && <div className="body-sm" style={{ fontSize: 11.5, marginTop: 3 }}><b>Pain points:</b> {sm2.painPoints}</div>}
+              {sm2.linkedin && (/linkedin\.com/i.test(sm2.linkedin) ? <a className="body-sm" style={{ fontSize: 11.5, color: "var(--brand-mid)" }} href={"https://" + sm2.linkedin.replace(/^https?:\/\//, "")} target="_blank" rel="noopener noreferrer"><Icon name="link" size={11} /> {sm2.linkedin}</a> : <div className="body-sm" style={{ fontSize: 11, color: "var(--muted)" }}>{sm2.linkedin}</div>)}
             </div>}
-          </div>)}
+          </div>; })}
         </div> : null}
         <div className="label" style={{ margin: "12px 0 8px", fontSize: 8.5 }}>From order history</div>
         {acc.decisionMakers.map(dm => <div key={dm.name} style={{ marginBottom: 12 }}>
@@ -701,6 +797,9 @@ function CI01_Intelligence({ role }) {
         </div>
         <div className="ai-suggest" style={{ marginTop: 12 }}><span className="ai-eyebrow">AI · a suggestion, not a decision</span><div className="body-sm" style={{ fontSize: 12, marginTop: 4 }}>Confidence labels are generated from communication patterns and order history.</div></div></div>
     </div>
+    </React.Fragment>}
+
+    {tab === "tg" && <TGBenchmark accId={accId} acc={acc} isMgmt={isMgmt} />}
   </div>;
 }
 
